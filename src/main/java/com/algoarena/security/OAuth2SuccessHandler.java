@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
@@ -49,14 +51,20 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         try {
             // Process OAuth2 user and get or create user
             User user = authService.processOAuth2User(oAuth2User, registrationId);
-            logger.info("User processed successfully: {}", user.getEmail());
+            
+            if (user == null) {
+                throw new RuntimeException("Failed to process OAuth2 user - user object is null");
+            }
+            
+            logger.info("User processed successfully: {} (ID: {})", user.getEmail(), user.getId());
             
             // Generate JWT token
             String token = jwtService.generateToken(user);
             logger.debug("JWT token generated for user: {}", user.getEmail());
             
             // Get frontend URL (use first allowed origin)
-            String frontendUrl = allowedOrigins.split(",")[0];
+            String frontendUrl = allowedOrigins.split(",")[0].trim();
+            logger.info("Using frontend URL for redirect: {}", frontendUrl);
             
             // Redirect to frontend with token
             String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/callback")
@@ -70,12 +78,21 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         } catch (Exception e) {
             logger.error("Error processing OAuth2 authentication for provider: " + registrationId, e);
             
-            String frontendUrl = allowedOrigins.split(",")[0];
+            String frontendUrl = allowedOrigins.split(",")[0].trim();
+            
+            // URL encode the error message to handle special characters
+            String encodedMessage = URLEncoder.encode(
+                e.getMessage() != null ? e.getMessage() : "Authentication failed", 
+                StandardCharsets.UTF_8
+            );
+            
             String errorUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/auth/login")
                     .queryParam("error", "authentication_failed")
-                    .queryParam("message", e.getMessage())
+                    .queryParam("message", encodedMessage)
+                    .queryParam("provider", registrationId)
                     .build().toUriString();
             
+            logger.info("Redirecting to error page: {}", errorUrl);
             getRedirectStrategy().sendRedirect(request, response, errorUrl);
         }
     }
@@ -84,7 +101,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String requestUri = request.getRequestURI();
         logger.debug("Extracting registration ID from URI: {}", requestUri);
         
-        // Extract from URI like /oauth2/callback/google
+        // Extract from URI like /api/oauth2/callback/google or /oauth2/callback/google
         String[] parts = requestUri.split("/");
         String registrationId = parts[parts.length - 1];
         

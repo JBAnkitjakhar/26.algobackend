@@ -7,6 +7,8 @@ import com.algoarena.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -14,31 +16,68 @@ import java.util.Map;
 @Service
 public class AuthService {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
+
     @Autowired
     private UserRepository userRepository;
 
     public User processOAuth2User(OAuth2User oAuth2User, String registrationId) {
         Map<String, Object> attributes = oAuth2User.getAttributes();
         
+        logger.info("=== Processing OAuth2 User ===");
+        logger.info("Provider: {}", registrationId);
+        logger.info("Attributes: {}", attributes);
+        
+        String providerId = extractProviderId(attributes, registrationId);
         String email = extractEmail(attributes, registrationId);
+        String username = extractUsername(attributes, registrationId);
         String name = extractName(attributes, registrationId);
         String image = extractImage(attributes, registrationId);
-        String providerId = extractProviderId(attributes, registrationId);
         
-        // Check if user already exists
-        User existingUser = userRepository.findByEmail(email).orElse(null);
+        logger.info("Extracted - ProviderId: {}, Email: {}, Username: {}, Name: {}", 
+            providerId, email, username, name);
+        
+        // Validate that we have at least providerId
+        if (providerId == null || providerId.trim().isEmpty()) {
+            throw new RuntimeException("Provider ID is required but not found");
+        }
+        
+        // Find existing user by provider ID (most reliable)
+        User existingUser = findExistingUserByProviderId(registrationId, providerId);
         
         if (existingUser != null) {
-            // Update existing user with latest info
-            return updateExistingUser(existingUser, name, image, providerId, registrationId);
+            logger.info("User exists (ID: {}), updating info", existingUser.getId());
+            return updateExistingUser(existingUser, email, name, image, username, providerId, registrationId);
         } else {
-            // Create new user
-            return createNewUser(email, name, image, providerId, registrationId);
+            logger.info("Creating new user for provider: {}", registrationId);
+            return createNewUser(email, name, image, username, providerId, registrationId);
         }
     }
 
-    private User updateExistingUser(User user, String name, String image, String providerId, String registrationId) {
+    /**
+     * Find existing user by provider ID (most reliable identifier)
+     */
+    private User findExistingUserByProviderId(String registrationId, String providerId) {
+        if ("google".equals(registrationId)) {
+            return userRepository.findByGoogleId(providerId).orElse(null);
+        } else if ("github".equals(registrationId)) {
+            return userRepository.findByGithubId(providerId).orElse(null);
+        }
+        return null;
+    }
+
+    private User updateExistingUser(User user, String email, String name, String image, 
+                                   String username, String providerId, String registrationId) {
         boolean updated = false;
+        
+        // Update email if we got a real one and it's different (or if user didn't have one before)
+        if (email != null && !email.trim().isEmpty()) {
+            if (user.getEmail() == null || !email.equals(user.getEmail())) {
+                user.setEmail(email);
+                updated = true;
+                logger.info("Updated email to: {}", email);
+            }
+        }
         
         // Update name if different
         if (name != null && !name.equals(user.getName())) {
@@ -52,37 +91,70 @@ public class AuthService {
             updated = true;
         }
         
-        // Update provider ID
-        if ("google".equals(registrationId) && !providerId.equals(user.getGoogleId())) {
+        // Update GitHub username if it's a GitHub login
+        if ("github".equals(registrationId) && username != null) {
+            if (user.getGithubUsername() == null || !username.equals(user.getGithubUsername())) {
+                user.setGithubUsername(username);
+                updated = true;
+            }
+        }
+        
+        // Update provider ID if not set (shouldn't happen, but just in case)
+        if ("google".equals(registrationId) && (user.getGoogleId() == null || !providerId.equals(user.getGoogleId()))) {
             user.setGoogleId(providerId);
             updated = true;
-        } else if ("github".equals(registrationId) && !providerId.equals(user.getGithubId())) {
+        } else if ("github".equals(registrationId) && (user.getGithubId() == null || !providerId.equals(user.getGithubId()))) {
             user.setGithubId(providerId);
             updated = true;
         }
         
         if (updated) {
             user.setUpdatedAt(LocalDateTime.now());
+            logger.info("Saving updated user: {}", user.getId());
             return userRepository.save(user);
         }
         
+        logger.info("No updates needed for user: {}", user.getId());
         return user;
     }
 
-    private User createNewUser(String email, String name, String image, String providerId, String registrationId) {
+    private User createNewUser(String email, String name, String image, String username,
+                              String providerId, String registrationId) {
         User newUser = new User();
-        newUser.setEmail(email);
-        newUser.setName(name);
+        
+        // Email is optional - only set if available
+        if (email != null && !email.trim().isEmpty()) {
+            newUser.setEmail(email);
+            logger.info("Setting email: {}", email);
+        } else {
+            logger.info("No email available (private), will use username for identification");
+        }
+        
+        // Set name (fallback to username if no name provided)
+        if (name != null && !name.trim().isEmpty()) {
+            newUser.setName(name);
+        } else if (username != null && !username.trim().isEmpty()) {
+            newUser.setName(username);
+        } else {
+            newUser.setName("User " + providerId);
+        }
+        
         newUser.setImage(image);
         
+        // Store provider-specific data
         if ("google".equals(registrationId)) {
             newUser.setGoogleId(providerId);
         } else if ("github".equals(registrationId)) {
             newUser.setGithubId(providerId);
+            newUser.setGithubUsername(username); // Always store GitHub username
+            logger.info("Storing GitHub username: {}", username);
         }
         
         // Set role - check if this is the first user (make them superadmin)
         newUser.setRole(determineUserRole(email));
+        
+        logger.info("Creating new user - Name: {}, Email: {}, Username: {}", 
+            newUser.getName(), newUser.getEmail(), newUser.getGithubUsername());
         
         return userRepository.save(newUser);
     }
@@ -99,13 +171,36 @@ public class AuthService {
     }
 
     private String extractEmail(Map<String, Object> attributes, String registrationId) {
+        String email = null;
+        
         switch (registrationId) {
             case "google":
-                return (String) attributes.get("email");
+                email = (String) attributes.get("email");
+                break;
             case "github":
-                return (String) attributes.get("email");
+                // GitHub email might be null if user has it private
+                email = (String) attributes.get("email");
+                if (email == null || email.trim().isEmpty()) {
+                    logger.info("GitHub email is private/null - user will not have email stored");
+                }
+                break;
             default:
                 throw new IllegalArgumentException("Unsupported registration ID: " + registrationId);
+        }
+        
+        return email;
+    }
+
+    private String extractUsername(Map<String, Object> attributes, String registrationId) {
+        switch (registrationId) {
+            case "google":
+                // Google doesn't provide username, could extract from email
+                String email = (String) attributes.get("email");
+                return email != null ? email.split("@")[0] : null;
+            case "github":
+                return (String) attributes.get("login"); // GitHub username
+            default:
+                return null;
         }
     }
 
@@ -114,7 +209,12 @@ public class AuthService {
             case "google":
                 return (String) attributes.get("name");
             case "github":
-                return (String) attributes.get("name");
+                // GitHub provides 'name' and 'login' fields
+                String name = (String) attributes.get("name");
+                if (name == null || name.trim().isEmpty()) {
+                    name = (String) attributes.get("login"); // Fallback to username
+                }
+                return name;
             default:
                 return "Unknown User";
         }
@@ -136,15 +236,28 @@ public class AuthService {
             case "google":
                 return (String) attributes.get("sub");
             case "github":
-                return String.valueOf(attributes.get("id"));
+                Object id = attributes.get("id");
+                return id != null ? String.valueOf(id) : null;
             default:
                 throw new IllegalArgumentException("Unsupported registration ID: " + registrationId);
         }
     }
 
-    // Helper method to get current authenticated user
+    // Helper method to get current authenticated user by email
     public User getCurrentUser(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found: " + email));
+    }
+    
+    // NEW: Helper method to get user by provider ID
+    public User getUserByProviderId(String providerId, String provider) {
+        if ("google".equals(provider)) {
+            return userRepository.findByGoogleId(providerId)
+                    .orElseThrow(() -> new RuntimeException("User not found with Google ID: " + providerId));
+        } else if ("github".equals(provider)) {
+            return userRepository.findByGithubId(providerId)
+                    .orElseThrow(() -> new RuntimeException("User not found with GitHub ID: " + providerId));
+        }
+        throw new IllegalArgumentException("Unknown provider: " + provider);
     }
 }

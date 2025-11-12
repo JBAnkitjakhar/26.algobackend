@@ -20,14 +20,24 @@ public class User implements UserDetails {
 
     private String name;
 
-    @Indexed(unique = true)
+    // CHANGED: Email is now optional - can be null for GitHub users with private email
+    // IMPORTANT: Keep @Indexed but NOT unique=true since null emails are allowed
+    @Indexed(unique = false, sparse = true)
     private String email;
 
     private String image;
 
+    // CHANGED: Add index for Google ID for faster lookups
+    @Indexed(unique = true, sparse = true)
     private String googleId;
 
+    // CHANGED: Add index for GitHub ID for faster lookups
+    @Indexed(unique = true, sparse = true)
     private String githubId;
+    
+    // NEW FIELD: Store GitHub username for users without email
+    @Indexed(unique = false)
+    private String githubUsername;
 
     private UserRole role = UserRole.USER;
 
@@ -60,7 +70,13 @@ public class User implements UserDetails {
 
     @Override
     public String getUsername() {
-        return email; // Use email as username
+        // CHANGED: Use email if available, otherwise use githubUsername, otherwise use ID
+        if (email != null && !email.isEmpty()) {
+            return email;
+        } else if (githubUsername != null && !githubUsername.isEmpty()) {
+            return githubUsername;
+        }
+        return id; // Fallback to ID
     }
 
     @Override
@@ -137,6 +153,15 @@ public class User implements UserDetails {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public String getGithubUsername() {
+        return githubUsername;
+    }
+
+    public void setGithubUsername(String githubUsername) {
+        this.githubUsername = githubUsername;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public UserRole getRole() {
         return role;
     }
@@ -171,12 +196,23 @@ public class User implements UserDetails {
         return role == UserRole.SUPERADMIN;
     }
 
+    // NEW: Helper to get display identifier (email or username)
+    public String getDisplayIdentifier() {
+        if (email != null && !email.isEmpty()) {
+            return email;
+        } else if (githubUsername != null && !githubUsername.isEmpty()) {
+            return "@" + githubUsername;
+        }
+        return name != null ? name : id;
+    }
+
     @Override
     public String toString() {
         return "User{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
                 ", email='" + email + '\'' +
+                ", githubUsername='" + githubUsername + '\'' +
                 ", role=" + role +
                 ", createdAt=" + createdAt +
                 '}';

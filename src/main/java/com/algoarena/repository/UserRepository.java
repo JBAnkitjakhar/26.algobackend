@@ -13,14 +13,17 @@ import java.util.Optional;
 @Repository
 public interface UserRepository extends MongoRepository<User, String> {
 
-    // Find user by email
+    // Find user by email (can be null/empty for GitHub users with private email)
     Optional<User> findByEmail(String email);
 
-    // Find user by Google ID
+    // Find user by Google ID (most reliable for Google users)
     Optional<User> findByGoogleId(String googleId);
 
-    // Find user by GitHub ID
+    // Find user by GitHub ID (most reliable for GitHub users)
     Optional<User> findByGithubId(String githubId);
+
+    // NEW: Find user by GitHub username (backup lookup)
+    Optional<User> findByGithubUsername(String githubUsername);
 
     // Check if email exists
     boolean existsByEmail(String email);
@@ -43,6 +46,7 @@ public interface UserRepository extends MongoRepository<User, String> {
     // List<User> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     // Custom query to find user by OAuth provider info
+    // This is useful but less reliable than direct provider ID lookups
     @Query("{ $or: [ { 'googleId': ?0 }, { 'githubId': ?0 }, { 'email': ?1 } ] }")
     Optional<User> findByOAuthInfo(String providerId, String email);
 }

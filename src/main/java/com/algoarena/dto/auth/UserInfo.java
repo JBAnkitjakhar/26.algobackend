@@ -3,14 +3,17 @@ package com.algoarena.dto.auth;
 
 import com.algoarena.model.User;
 import com.algoarena.model.UserRole;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDateTime;
 
+@JsonInclude(JsonInclude.Include.NON_NULL) // Don't include null fields in JSON response
 public class UserInfo {
     private String id;
     private String name;
-    private String email;
+    private String email; // Can be null for GitHub users with private email
     private String image;
+    private String githubUsername; // For displaying GitHub username
     private UserRole role;
     private LocalDateTime createdAt;
 
@@ -20,8 +23,9 @@ public class UserInfo {
     public UserInfo(User user) {
         this.id = user.getId();
         this.name = user.getName();
-        this.email = user.getEmail();
+        this.email = user.getEmail(); // Can be null
         this.image = user.getImage();
+        this.githubUsername = user.getGithubUsername();
         this.role = user.getRole();
         this.createdAt = user.getCreatedAt();
     }
@@ -59,6 +63,14 @@ public class UserInfo {
         this.image = image;
     }
 
+    public String getGithubUsername() {
+        return githubUsername;
+    }
+
+    public void setGithubUsername(String githubUsername) {
+        this.githubUsername = githubUsername;
+    }
+
     public UserRole getRole() {
         return role;
     }
@@ -82,5 +94,15 @@ public class UserInfo {
 
     public boolean isSuperAdmin() {
         return role == UserRole.SUPERADMIN;
+    }
+    
+    // NEW: Get display identifier (email or username)
+    public String getDisplayIdentifier() {
+        if (email != null && !email.isEmpty()) {
+            return email;
+        } else if (githubUsername != null && !githubUsername.isEmpty()) {
+            return "@" + githubUsername;
+        }
+        return name;
     }
 }

@@ -7,13 +7,14 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.LocalDateTime;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonInclude(JsonInclude.Include.NON_NULL) // Don't include null fields in JSON response
 public class UserDTO {
 
     private String id;
     private String name;
-    private String email;
+    private String email; // Can be null for GitHub users with private email
     private String image;
+    private String githubUsername; // NEW: For displaying GitHub username
     private UserRole role;
     
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
@@ -27,12 +28,13 @@ public class UserDTO {
     // Constructors
     public UserDTO() {}
 
-    public UserDTO(String id, String name, String email, String image, UserRole role, 
+    public UserDTO(String id, String name, String email, String image, String githubUsername, UserRole role, 
                    LocalDateTime createdAt, LocalDateTime updatedAt, boolean isPrimarySuperAdmin) {
         this.id = id;
         this.name = name;
         this.email = email;
         this.image = image;
+        this.githubUsername = githubUsername;
         this.role = role;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
@@ -72,6 +74,14 @@ public class UserDTO {
         this.image = image;
     }
 
+    public String getGithubUsername() {
+        return githubUsername;
+    }
+
+    public void setGithubUsername(String githubUsername) {
+        this.githubUsername = githubUsername;
+    }
+
     public UserRole getRole() {
         return role;
     }
@@ -103,6 +113,16 @@ public class UserDTO {
     public void setIsPrimarySuperAdmin(boolean isPrimarySuperAdmin) {
         this.isPrimarySuperAdmin = isPrimarySuperAdmin;
     }
+    
+    // NEW: Helper to get display identifier
+    public String getDisplayIdentifier() {
+        if (email != null && !email.isEmpty()) {
+            return email;
+        } else if (githubUsername != null && !githubUsername.isEmpty()) {
+            return "@" + githubUsername;
+        }
+        return name;
+    }
 
     @Override
     public String toString() {
@@ -110,6 +130,7 @@ public class UserDTO {
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
                 ", email='" + email + '\'' +
+                ", githubUsername='" + githubUsername + '\'' +
                 ", role=" + role +
                 ", isPrimarySuperAdmin=" + isPrimarySuperAdmin +
                 '}';

@@ -135,20 +135,21 @@ public class UserService {
     }
 
     /**
-     * Convert User entity to UserDTO
-     */
-    private UserDTO convertToUserDTO(User user) {
-        return new UserDTO(
-            user.getId(),
-            user.getName(),
-            user.getEmail(),
-            user.getImage(),
-            user.getRole(),
-            user.getCreatedAt(),
-            user.getUpdatedAt(),
-            PRIMARY_SUPER_ADMIN_EMAIL.equals(user.getEmail())
-        );
-    }
+ * Convert User entity to UserDTO
+ */
+private UserDTO convertToUserDTO(User user) {
+    return new UserDTO(
+        user.getId(),
+        user.getName(),
+        user.getEmail(), // Can be null
+        user.getImage(),
+        user.getGithubUsername(), // NEW: Include GitHub username
+        user.getRole(),
+        user.getCreatedAt(),
+        user.getUpdatedAt(),
+        PRIMARY_SUPER_ADMIN_EMAIL.equals(user.getEmail())
+    );
+}
 
     /**
      * Inner class for user statistics
