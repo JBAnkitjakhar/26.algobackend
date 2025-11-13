@@ -81,4 +81,21 @@ public interface UserProgressRepository extends MongoRepository<UserProgress, St
      * @return List of UserProgress records that exist (no records = not solved)
      */
     List<UserProgress> findByUser_IdAndQuestion_IdIn(String userId, List<String> questionIds);
+
+    /**
+     * Find all user progress records for a user with specific solved status
+     * Used for getting all solved questions by user
+     */
+    List<UserProgress> findByUser_IdAndSolved(String userId, boolean solved);
+    
+    /**
+     * Count questions solved by specific user
+     */
+    long countByUser_IdAndSolved(String userId, boolean solved);
+    
+    /**
+     * Count how many users solved a specific question
+     * Used for admin question summary
+     */
+    long countByQuestion_IdAndSolved(String questionId, boolean solved);
 }

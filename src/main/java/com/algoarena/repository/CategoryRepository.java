@@ -22,6 +22,7 @@ public interface CategoryRepository extends MongoRepository<Category, String> {
 
     // Find all categories sorted by name
     List<Category> findAllByOrderByNameAsc();
+    List<Category> findAllByOrderByCreatedAtAsc(); 
 
     // Count total categories
     @Query(value = "{}", count = true)

@@ -29,6 +29,9 @@ public class Question {
     private Category category;
 
     private QuestionLevel level;
+    
+    // NEW: Display order for user category view (questions within same level)
+    private Integer displayOrder;
 
     @DBRef
     private User createdBy;
@@ -146,6 +149,16 @@ public class Question {
         this.level = level;
         this.updatedAt = LocalDateTime.now();
     }
+    
+    // NEW: Getter and Setter for displayOrder
+    public Integer getDisplayOrder() {
+        return displayOrder;
+    }
+    
+    public void setDisplayOrder(Integer displayOrder) {
+        this.displayOrder = displayOrder;
+        this.updatedAt = LocalDateTime.now();
+    }
 
     public User getCreatedBy() {
         return createdBy;
@@ -177,6 +190,7 @@ public class Question {
                 "id='" + id + '\'' +
                 ", title='" + title + '\'' +
                 ", level=" + level +
+                ", displayOrder=" + displayOrder +
                 ", category=" + (category != null ? category.getName() : "null") +
                 '}';
     }

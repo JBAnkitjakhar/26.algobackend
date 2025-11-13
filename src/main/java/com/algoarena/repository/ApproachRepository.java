@@ -24,6 +24,7 @@ public interface ApproachRepository extends MongoRepository<Approach, String> {
 
     // Count approaches for a user on a specific question (THIS WORKS PERFECTLY)
     long countByQuestion_IdAndUser_Id(String questionId, String userId);
+    long countByQuestion_Id(String questionId);  // ← ADD THIS LINE
 
     // Count total approaches by user
     long countByUser_Id(String userId);

@@ -1,6 +1,7 @@
 // src/main/java/com/algoarena/service/dsa/SolutionService.java
 package com.algoarena.service.dsa;
 
+import com.algoarena.dto.dsa.AdminSolutionSummaryDTO;
 import com.algoarena.dto.dsa.SolutionDTO;
 import com.algoarena.model.Solution;
 import com.algoarena.model.Question;
@@ -9,6 +10,8 @@ import com.algoarena.repository.SolutionRepository;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.service.file.VisualizerService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -50,6 +53,7 @@ public class SolutionService {
     }
 
     // Create new solution for a question
+    @CacheEvict(value = "adminSolutionsSummary", allEntries = true)
     public SolutionDTO createSolution(String questionId, SolutionDTO solutionDTO, User createdBy) {
         // Find the question
         Question question = questionRepository.findById(questionId)
@@ -82,6 +86,7 @@ public class SolutionService {
     }
 
     // Update solution
+    @CacheEvict(value = "adminSolutionsSummary", allEntries = true)
     public SolutionDTO updateSolution(String id, SolutionDTO solutionDTO) {
         Solution solution = solutionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Solution not found"));
@@ -112,6 +117,7 @@ public class SolutionService {
     }
 
     // Delete solution
+    @CacheEvict(value = "adminSolutionsSummary", allEntries = true)
     public void deleteSolution(String id) {
         if (!solutionRepository.existsById(id)) {
             throw new RuntimeException("Solution not found");
@@ -290,5 +296,46 @@ public class SolutionService {
         }
         
         return cleanLink;
+    }
+
+    /**
+     * Get admin solutions summary (lightweight, cached)
+     * Returns paginated summary without full content
+     */
+    @Cacheable(value = "adminSolutionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
+    public Page<AdminSolutionSummaryDTO> getAdminSolutionsSummary(Pageable pageable) {
+        System.out.println("CACHE MISS: Fetching admin solutions summary from database");
+        
+        Page<Solution> solutions = solutionRepository.findAllByOrderByCreatedAtDesc(pageable);
+        
+        return solutions.map(solution -> {
+            AdminSolutionSummaryDTO dto = new AdminSolutionSummaryDTO();
+            dto.setId(solution.getId());
+            
+            // Question details
+            if (solution.getQuestion() != null) {
+                dto.setQuestionTitle(solution.getQuestion().getTitle());
+                dto.setQuestionId(solution.getQuestion().getId());
+                dto.setQuestionLevel(solution.getQuestion().getLevel());
+                
+                if (solution.getQuestion().getCategory() != null) {
+                    dto.setCategoryName(solution.getQuestion().getCategory().getName());
+                }
+            }
+            
+            // Solution details
+            dto.setImageCount(solution.getImageUrls() != null ? solution.getImageUrls().size() : 0);
+            dto.setVisualizerCount(solution.getVisualizerFileIds() != null ? solution.getVisualizerFileIds().size() : 0);
+            
+            // Code language
+            if (solution.getCodeSnippet() != null) {
+                dto.setCodeLanguage(solution.getCodeSnippet().getLanguage());
+            }
+            
+            dto.setCreatedByName(solution.getCreatedBy() != null ? solution.getCreatedBy().getName() : "Unknown");
+            dto.setUpdatedAt(solution.getUpdatedAt());
+            
+            return dto;
+        });
     }
 }

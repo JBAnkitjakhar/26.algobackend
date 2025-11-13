@@ -1,9 +1,10 @@
-// src/main/java/com/algoarena/service/dsa/CategoryService.java - FIXED CACHE EVICTION
+// src/main/java/com/algoarena/service/dsa/CategoryService.java
 
 package com.algoarena.service.dsa;
 
 import com.algoarena.dto.dsa.CategoryDTO;
 import com.algoarena.dto.dsa.CategorySummaryDTO;
+import com.algoarena.dto.user.GlobalCategoryInfoDTO;
 import com.algoarena.model.Category;
 import com.algoarena.model.Question;
 import com.algoarena.model.QuestionLevel;
@@ -19,11 +20,13 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 @Service
@@ -53,8 +56,7 @@ public class CategoryService {
      */
     @Cacheable(value = "categoriesProgress", key = "#userId")
     public List<CategorySummaryDTO> getCategoriesWithProgress(String userId) {
-        // System.out.println("CACHE MISS: Fetching fresh categories with progress for user: " + userId);
-
+       
         // Step 1: Get all categories
         List<Category> categories = categoryRepository.findAllByOrderByNameAsc();
 
@@ -68,8 +70,6 @@ public class CategoryService {
         Set<String> solvedQuestionIds = allUserProgress.stream()
                 .map(progress -> progress.getQuestion().getId())
                 .collect(Collectors.toSet());
-
-        // System.out.println("DEBUG: User " + userId + " has solved " + solvedQuestionIds.size() + " questions");
 
         // Step 4: Process each category
         return categories.stream()
@@ -144,7 +144,7 @@ public class CategoryService {
     /**
      * HYBRID: Get all categories - CACHED (no user-specific data)
      */
-    @Cacheable(value = "categoriesList", key = "'all'")
+    @Cacheable(value = "adminCategories")
     public List<CategoryDTO> getAllCategories() {
         // System.out.println("CACHE MISS: Fetching all categories from database");
         
@@ -159,7 +159,7 @@ public class CategoryService {
     /**
      * Create category with PROPER cache eviction using @CacheEvict
      */
-    @CacheEvict(value = {"categoriesProgress", "categoriesList", "questionsSummary", "adminStats"}, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoriesProgress" }, allEntries = true)
     public CategoryDTO createCategory(CategoryDTO categoryDTO, User createdBy) {
         Category category = new Category();
         category.setName(categoryDTO.getName().trim());
@@ -175,7 +175,7 @@ public class CategoryService {
     /**
      * Update category with PROPER cache eviction using @CacheEvict
      */
-    @CacheEvict(value = {"categoriesProgress", "categoriesList", "questionsSummary", "categoryStats", "adminStats"}, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoriesProgress" }, allEntries = true)
     public CategoryDTO updateCategory(String id, CategoryDTO categoryDTO) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -192,7 +192,7 @@ public class CategoryService {
     /**
      * Delete category with PROPER cache eviction using @CacheEvict
      */
-    @CacheEvict(value = {"categoriesProgress", "categoriesList", "questionsSummary", "questionsList", "categoryStats", "adminStats"}, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoriesProgress" }, allEntries = true)
     @Transactional
     public int deleteCategory(String id) {
         // First, get all questions in this category
@@ -291,5 +291,84 @@ public class CategoryService {
 
     public long getTotalCategoriesCount() {
         return categoryRepository.countAllCategories();
+    }
+
+    /**
+     * Get global categories information (cached globally)
+     * Returns all categories with questions grouped by level (displayOrder)
+     * This data is SAME for all users
+     */
+    @Cacheable(value = "globalCategories")
+    public GlobalCategoryInfoDTO getGlobalCategoriesInfo() {
+        System.out.println("CACHE MISS: Fetching global categories info from database");
+        
+        List<Category> categories = categoryRepository.findAllByOrderByCreatedAtAsc();
+        Map<String, GlobalCategoryInfoDTO.CategoryInfo> categoryInfoMap = new HashMap<>();
+        
+        for (Category category : categories) {
+            GlobalCategoryInfoDTO.CategoryInfo info = new GlobalCategoryInfoDTO.CategoryInfo();
+            info.setId(category.getId());
+            info.setName(category.getName());
+            
+            // Get all questions for this category
+            List<Question> questions = questionRepository.findByCategory_Id(category.getId());
+            
+            // Initialize synchronized lists for thread-safety
+            List<String> easyIds = Collections.synchronizedList(new ArrayList<>());
+            List<String> mediumIds = Collections.synchronizedList(new ArrayList<>());
+            List<String> hardIds = Collections.synchronizedList(new ArrayList<>());
+            
+            // Sort questions by displayOrder and group by level
+            Map<QuestionLevel, List<Question>> questionsByLevel = questions.stream()
+                .collect(Collectors.groupingBy(Question::getLevel));
+            
+            // Process EASY questions
+            if (questionsByLevel.containsKey(QuestionLevel.EASY)) {
+                List<Question> easyQuestions = questionsByLevel.get(QuestionLevel.EASY);
+                easyQuestions.sort(Comparator.comparing(
+                    q -> q.getDisplayOrder() != null ? q.getDisplayOrder() : Integer.MAX_VALUE
+                ));
+                easyIds.addAll(easyQuestions.stream().map(Question::getId).toList());
+                info.setEasyCount(easyQuestions.size());
+            } else {
+                info.setEasyCount(0);
+            }
+            
+            // Process MEDIUM questions
+            if (questionsByLevel.containsKey(QuestionLevel.MEDIUM)) {
+                List<Question> mediumQuestions = questionsByLevel.get(QuestionLevel.MEDIUM);
+                mediumQuestions.sort(Comparator.comparing(
+                    q -> q.getDisplayOrder() != null ? q.getDisplayOrder() : Integer.MAX_VALUE
+                ));
+                mediumIds.addAll(mediumQuestions.stream().map(Question::getId).toList());
+                info.setMediumCount(mediumQuestions.size());
+            } else {
+                info.setMediumCount(0);
+            }
+            
+            // Process HARD questions
+            if (questionsByLevel.containsKey(QuestionLevel.HARD)) {
+                List<Question> hardQuestions = questionsByLevel.get(QuestionLevel.HARD);
+                hardQuestions.sort(Comparator.comparing(
+                    q -> q.getDisplayOrder() != null ? q.getDisplayOrder() : Integer.MAX_VALUE
+                ));
+                hardIds.addAll(hardQuestions.stream().map(Question::getId).toList());
+                info.setHardCount(hardQuestions.size());
+            } else {
+                info.setHardCount(0);
+            }
+            
+            info.setTotalQuestions(questions.size());
+            info.setEasyQuestionIds(easyIds);
+            info.setMediumQuestionIds(mediumIds);
+            info.setHardQuestionIds(hardIds);
+            
+            categoryInfoMap.put(category.getId(), info);
+        }
+        
+        GlobalCategoryInfoDTO result = new GlobalCategoryInfoDTO();
+        result.setCategories(categoryInfoMap);
+        
+        return result;
     }
 }

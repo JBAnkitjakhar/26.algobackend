@@ -59,4 +59,32 @@ public interface QuestionRepository extends MongoRepository<Question, String> {
        // Check if title exists (case-insensitive)
        @Query("{ 'title': { $regex: ?0, $options: 'i' } }")
        boolean existsByTitleIgnoreCase(String title);
+
+       /**
+        * Count questions without displayOrder (for migration check)
+        */
+       long countByDisplayOrderIsNull();
+
+       /**
+        * Find questions by category and level without displayOrder
+        * Used for migration and maintenance
+        */
+       List<Question> findByCategory_IdAndLevelAndDisplayOrderIsNull(String categoryId, QuestionLevel level);
+
+       /**
+        * Find all questions without displayOrder
+        * Used for migration
+        */
+       List<Question> findByDisplayOrderIsNull();
+
+       /**
+        * Find maximum displayOrder for a category and level
+        * Used when creating new questions to auto-assign displayOrder
+        */
+       @Query("{ 'category.$id': ?0, 'level': ?1 }")
+       @org.springframework.data.mongodb.repository.Aggregation(pipeline = {
+                     "{ $match: { 'category.$id': ?0, 'level': ?1 } }",
+                     "{ $group: { _id: null, maxOrder: { $max: '$displayOrder' } } }"
+       })
+       Integer findMaxDisplayOrderByCategoryAndLevel(String categoryId, QuestionLevel level);
 }

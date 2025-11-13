@@ -1,341 +1,190 @@
 // src/main/java/com/algoarena/controller/admin/AdminController.java
-
 package com.algoarena.controller.admin;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import com.algoarena.dto.dsa.AdminQuestionSummaryDTO;
+import com.algoarena.dto.dsa.AdminSolutionSummaryDTO;
+import com.algoarena.service.dsa.QuestionService;
+import com.algoarena.service.dsa.SolutionService;
 
-import com.algoarena.dto.admin.UserDTO;
-import com.algoarena.model.User;
-import com.algoarena.model.UserRole;
-import com.algoarena.service.admin.AdminService;  
-import com.algoarena.service.admin.UserService;
-import com.algoarena.service.dsa.UserProgressService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-import java.util.HashMap;
-
+/**
+ * Admin-specific controller for summary/lightweight endpoints
+ * These endpoints return minimal data for listing views
+ */
 @RestController
 @RequestMapping("/admin")
 @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
 public class AdminController {
 
     @Autowired
-    private AdminService adminService;   
+    private QuestionService questionService;
 
     @Autowired
-    private UserProgressService userProgressService;
-
-    @Autowired
-    private UserService userService;
+    private SolutionService solutionService;
 
     /**
-     * TEMPORARY DEBUG ENDPOINT
-     * GET /api/admin/test
+     * Get admin questions summary (lightweight, paginated)
+     * Returns minimal data without full content
+     * 
+     * @param page Page number (default: 0)
+     * @param size Page size (default: 20)
+     * @return Page of AdminQuestionSummaryDTO
      */
-    @GetMapping("/test")
-    public ResponseEntity<Map<String, Object>> testEndpoint() {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "Admin endpoint is working");
-        response.put("timestamp", System.currentTimeMillis());
-        return ResponseEntity.ok(response);
+    @GetMapping("/questions/summary")
+    public ResponseEntity<Page<AdminQuestionSummaryDTO>> getAdminQuestionsSummary(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        Pageable pageable = PageRequest.of(page, size);
+        Page<AdminQuestionSummaryDTO> summaries = questionService.getAdminQuestionsSummary(pageable);
+        
+        return ResponseEntity.ok(summaries);
     }
 
     /**
-     * Get admin Home statistics (Enhanced with user stats)
-     * GET /api/admin/stats
+     * Get admin solutions summary (lightweight, paginated)
+     * Returns minimal data without full content
+     * 
+     * @param page Page number (default: 0)
+     * @param size Page size (default: 20)
+     * @return Page of AdminSolutionSummaryDTO
      */
-    @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getAdminStats() {
-        try {
-            Map<String, Object> stats = adminService.getAdminHomeStats();
-            
-            // Add user role statistics
-            UserService.UserStatsDTO userStats = userService.getUserStats();
-            Map<String, Object> roleStats = new HashMap<>();
-            roleStats.put("totalUsers", userStats.getTotalUsers());
-            roleStats.put("users", userStats.getUsers());
-            roleStats.put("admins", userStats.getAdmins());
-            roleStats.put("superAdmins", userStats.getSuperAdmins());
-            
-            stats.put("userRoles", roleStats);
-            
-            return ResponseEntity.ok(stats);
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "AdminService error");
-            errorResponse.put("message", e.getMessage());
-            errorResponse.put("cause", e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(errorResponse);
-        }
+    @GetMapping("/solutions/summary")
+    public ResponseEntity<Page<AdminSolutionSummaryDTO>> getAdminSolutionsSummary(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        
+        Pageable pageable = PageRequest.of(page, size);
+        Page<AdminSolutionSummaryDTO> summaries = solutionService.getAdminSolutionsSummary(pageable);
+        
+        return ResponseEntity.ok(summaries);
     }
 
     /**
-     * Get all users with pagination (Admin/SuperAdmin only)
-     * GET /api/admin/users?page=0&size=20
+     * Update display order for a single question
+     * 
+     * @param id Question ID
+     * @param displayOrder New display order value
+     * @return Success response
      */
-    @GetMapping("/users")
-    public ResponseEntity<Page<UserDTO>> getAllUsers(Pageable pageable) {
+    @PutMapping("/questions/{id}/display-order")
+    public ResponseEntity<Map<String, Object>> updateQuestionDisplayOrder(
+            @PathVariable String id,
+            @RequestParam Integer displayOrder) {
+        
         try {
-            Page<UserDTO> users = userService.getAllUsers(pageable);
-            return ResponseEntity.ok(users);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
-        }
-    }
-
-    /**
-     * Get specific user details
-     * GET /api/admin/users/{userId}
-     */
-    @GetMapping("/users/{userId}")
-    public ResponseEntity<?> getUserById(@PathVariable String userId) {
-        try {
-            UserDTO user = userService.getUserById(userId);
-            return ResponseEntity.ok(user);
-        } catch (RuntimeException e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "User not found");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(404).body(errorResponse);
-        }
-    }
-
-    /**
-     * Get users by role with pagination
-     * GET /api/admin/users/role/{role}?page=0&size=20
-     */
-    @GetMapping("/users/role/{role}")
-    public ResponseEntity<Page<UserDTO>> getUsersByRole(
-            @PathVariable String role,
-            Pageable pageable) {
-        try {
-            UserRole userRole = UserRole.fromString(role);
-            Page<UserDTO> users = userService.getUsersByRole(userRole, pageable);
-            return ResponseEntity.ok(users);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(400).body(null);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(null);
-        }
-    }
-
-    /**
-     * Update user role (SuperAdmin can create admins, Primary SuperAdmin can do all)
-     * PUT /api/admin/users/{userId}/role
-     */
-    @PutMapping("/users/{userId}/role")
-    public ResponseEntity<?> updateUserRole(
-            @PathVariable String userId,
-            @RequestBody RoleUpdateRequest request,
-            Authentication authentication) {
-        try {
-            User currentUser = (User) authentication.getPrincipal();
-            UserDTO updatedUser = userService.updateUserRole(userId, request.getRole(), currentUser);
+            questionService.updateQuestionDisplayOrder(id, displayOrder);
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("message", "User role updated successfully");
-            response.put("user", updatedUser);
+            response.put("message", "Display order updated successfully");
+            response.put("questionId", id);
+            response.put("displayOrder", displayOrder);
             
             return ResponseEntity.ok(response);
+            
         } catch (RuntimeException e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "Role update failed");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(403).body(errorResponse);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
-
+    
     /**
-     * Get user statistics
-     * GET /api/admin/users/stats
+     * Batch update display order for multiple questions
+     * Used for drag-and-drop reordering in admin panel
+     * 
+     * Request body format:
+     * [
+     *   {"questionId": "id1", "displayOrder": 1},
+     *   {"questionId": "id2", "displayOrder": 2},
+     *   ...
+     * ]
      */
-    @GetMapping("/users/stats")
-    public ResponseEntity<?> getUserStats() {
+    @PutMapping("/questions/display-order/batch")
+    public ResponseEntity<Map<String, Object>> batchUpdateDisplayOrder(
+            @RequestBody List<Map<String, Object>> updates) {
+        
         try {
-            UserService.UserStatsDTO stats = userService.getUserStats();
+            int updatedCount = questionService.batchUpdateDisplayOrder(updates);
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("data", stats);
-            response.put("timestamp", System.currentTimeMillis());
+            response.put("message", "Display orders updated successfully");
+            response.put("updatedCount", updatedCount);
             
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "Failed to fetch user statistics");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(errorResponse);
+            
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
-
+    
     /**
-     * Get system settings
-     * GET /api/admin/settings
+     * Get questions by category and level with display order
+     * Used for admin reordering interface
+     * 
+     * @param categoryId Category ID
+     * @param level Question level (EASY, MEDIUM, HARD)
+     * @return List of questions with display order
      */
-    @GetMapping("/settings")
-    @PreAuthorize("hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> getSystemSettings() {
+    @GetMapping("/questions/by-category-level")
+    public ResponseEntity<List<Map<String, Object>>> getQuestionsByCategoryAndLevel(
+            @RequestParam String categoryId,
+            @RequestParam String level) {
+        
         try {
-            Map<String, Object> settings = adminService.getSystemSettings();
-            return ResponseEntity.ok(settings);
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "Settings error");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(errorResponse);
+            List<Map<String, Object>> questions = 
+                questionService.getQuestionsByCategoryAndLevelForOrdering(categoryId, level);
+            
+            return ResponseEntity.ok(questions);
+            
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
         }
     }
-
+    
     /**
-     * Update system settings
-     * PUT /api/admin/settings
+     * Reset display order for a category and level
+     * Re-orders questions based on current order (1, 2, 3, ...)
+     * 
+     * @param categoryId Category ID
+     * @param level Question level
+     * @return Success response
      */
-    @PutMapping("/settings")
-    @PreAuthorize("hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> updateSystemSettings(@RequestBody Map<String, Object> settings) {
+    @PostMapping("/questions/display-order/reset")
+    public ResponseEntity<Map<String, Object>> resetDisplayOrder(
+            @RequestParam String categoryId,
+            @RequestParam String level) {
+        
         try {
-            Map<String, Object> updatedSettings = adminService.updateSystemSettings(settings);
-            return ResponseEntity.ok(updatedSettings);
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "Update settings error");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(errorResponse);
-        }
-    }
-
-    /**
-     * Get global progress statistics  
-     * GET /api/admin/progress
-     */
-    @GetMapping("/progress")
-    public ResponseEntity<Map<String, Object>> getGlobalProgress() {
-        try {
-            Map<String, Object> globalProgress = userProgressService.getGlobalStats();
-            return ResponseEntity.ok(globalProgress);
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "UserProgressService error");
-            errorResponse.put("message", e.getMessage());
-            errorResponse.put("cause", e.getClass().getSimpleName());
-            return ResponseEntity.status(500).body(errorResponse);
-        }
-    }
-
-    /**
-     * Get system health information
-     * GET /api/admin/health
-     */
-    @GetMapping("/health")
-    public ResponseEntity<Map<String, Object>> getSystemHealth() {
-        try {
-            Map<String, Object> health = adminService.getSystemHealth();
-            return ResponseEntity.ok(health);
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "Health check error");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(errorResponse);
-        }
-    }
-
-    /**
-     * Get application metrics
-     * GET /api/admin/metrics
-     */
-    @GetMapping("/metrics")
-    public ResponseEntity<Map<String, Object>> getApplicationMetrics() {
-        try {
-            Map<String, Object> metrics = adminService.getApplicationMetrics();
-            return ResponseEntity.ok(metrics);
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "Metrics error");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(errorResponse);
-        }
-    }
-
-    /**
-     * Get role permissions matrix
-     * GET /api/admin/users/permissions
-     */
-    @GetMapping("/users/permissions")
-    public ResponseEntity<Map<String, Object>> getRolePermissions() {
-        Map<String, Object> permissions = new HashMap<>();
-        
-        // Define what each role can do
-        Map<String, Object> userPermissions = new HashMap<>();
-        userPermissions.put("canCreateQuestions", false);
-        userPermissions.put("canEditQuestions", false);
-        userPermissions.put("canDeleteQuestions", false);
-        userPermissions.put("canManageUsers", false);
-        userPermissions.put("canChangeRoles", false);
-        userPermissions.put("canAccessAdminPanel", false);
-        
-        Map<String, Object> adminPermissions = new HashMap<>();
-        adminPermissions.put("canCreateQuestions", true);
-        adminPermissions.put("canEditQuestions", true);
-        adminPermissions.put("canDeleteQuestions", true);
-        adminPermissions.put("canManageUsers", false);
-        adminPermissions.put("canChangeRoles", false); // ZERO role management
-        adminPermissions.put("canAccessAdminPanel", true);
-        
-        Map<String, Object> superAdminPermissions = new HashMap<>();
-        superAdminPermissions.put("canCreateQuestions", true);
-        superAdminPermissions.put("canEditQuestions", true);
-        superAdminPermissions.put("canDeleteQuestions", true);
-        superAdminPermissions.put("canManageUsers", true);
-        superAdminPermissions.put("canChangeRoles", true); // Can create ADMIN
-        superAdminPermissions.put("canAccessAdminPanel", true);
-        superAdminPermissions.put("canManageSystemSettings", true);
-        
-        permissions.put("USER", userPermissions);
-        permissions.put("ADMIN", adminPermissions);
-        permissions.put("SUPERADMIN", superAdminPermissions);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("permissions", permissions);
-        response.put("hierarchy", new String[]{"USER", "ADMIN", "SUPERADMIN", "PRIMARY_SUPERADMIN"});
-        
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Request DTO for role updates
-     */
-    public static class RoleUpdateRequest {
-        private UserRole role;
-
-        public RoleUpdateRequest() {}
-
-        public RoleUpdateRequest(UserRole role) {
-            this.role = role;
-        }
-
-        public UserRole getRole() {
-            return role;
-        }
-
-        public void setRole(UserRole role) {
-            this.role = role;
+            int updatedCount = questionService.resetDisplayOrder(categoryId, level);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Display orders reset successfully");
+            response.put("updatedCount", updatedCount);
+            
+            return ResponseEntity.ok(response);
+            
+        } catch (RuntimeException e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
     }
 }
