@@ -1,4 +1,5 @@
 // src/main/java/com/algoarena/model/UserProgress.java
+
 package com.algoarena.model;
 
 import org.springframework.data.annotation.Id;

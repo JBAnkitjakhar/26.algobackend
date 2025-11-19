@@ -560,27 +560,26 @@ public class QuestionService {
         });
     }
 
-    /**
- * Get complete question details for admin (WITHOUT solutions)
- * Returns full question content for admin editing without solutions
- * 
- * @param questionId Question ID
- * @return QuestionDTO with all content except solutions
- */
-@Cacheable(value = "adminQuestionDetail", key = "#questionId")
-public QuestionDTO getAdminQuestionById(String questionId) {
-    System.out.println("CACHE MISS: Fetching admin question detail from database");
+    @Cacheable(value = "adminQuestionDetail", key = "#questionId")
+    public QuestionDTO getAdminQuestionById(String questionId) {
+        System.out.println("=== QuestionService.getAdminQuestionById ===");
+        System.out.println("Looking for question with ID: " + questionId);
 
-    Question question = questionRepository.findById(questionId)
-            .orElseThrow(() -> new RuntimeException("Question not found with id: " + questionId));
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> {
+                    System.out.println("Question NOT FOUND in database!");
+                    return new RuntimeException("Question not found with id: " + questionId);
+                });
 
-    QuestionDTO questionDTO = QuestionDTO.fromEntity(question);
-    
-    // Ensure display order is included
-    questionDTO.setDisplayOrder(question.getDisplayOrder());
-    
-    return questionDTO;
-}
+        System.out.println("Question found in database: " + question.getTitle());
+
+        QuestionDTO questionDTO = QuestionDTO.fromEntity(question);
+        questionDTO.setDisplayOrder(question.getDisplayOrder());
+
+        System.out.println("QuestionDTO created successfully");
+
+        return questionDTO;
+    }
 
     /**
      * Get questions metadata (lightweight, cached globally)

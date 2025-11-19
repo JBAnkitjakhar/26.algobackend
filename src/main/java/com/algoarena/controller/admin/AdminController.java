@@ -70,19 +70,19 @@ public class AdminController {
         return ResponseEntity.ok(summaries);
     }
 
-    /**
-     * Get complete question details for admin
-     * Returns full question content for editing (without solutions)
-     * 
-     * @param id Question ID
-     * @return Complete QuestionDTO
-     */
     @GetMapping("/questions/{id}")
     public ResponseEntity<QuestionDTO> getAdminQuestionById(@PathVariable String id) {
+        System.out.println("=== ADMIN ENDPOINT HIT ===");
+        System.out.println("Question ID requested: " + id);
+
         try {
-            QuestionDTO questionDetail = questionService.getAdminQuestionById(id);
-            return ResponseEntity.ok(questionDetail);
-        } catch (RuntimeException e) {
+            QuestionDTO question = questionService.getAdminQuestionById(id);
+            System.out.println("Question retrieved successfully: " + question.getTitle());
+            return ResponseEntity.ok(question);
+        } catch (Exception e) {
+            System.out.println("ERROR in AdminController: " + e.getClass().getName());
+            System.out.println("ERROR Message: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.notFound().build();
         }
     }
