@@ -593,9 +593,6 @@ public class QuestionService {
                 .collect(Collectors.toList());
         detailDTO.setSolutions(solutionDTOs);
 
-        // No user progress needed for admin view
-        detailDTO.setUserProgress(null);
-
         return detailDTO;
     }
 
