@@ -7,7 +7,7 @@ import java.util.Map;
 import com.algoarena.dto.admin.AdminOverviewDTO;
 import com.algoarena.dto.dsa.AdminQuestionSummaryDTO;
 import com.algoarena.dto.dsa.AdminSolutionSummaryDTO;
-import com.algoarena.dto.dsa.QuestionDetailDTO;
+import com.algoarena.dto.dsa.QuestionDTO;
 import com.algoarena.service.admin.AdminOverviewService;
 import com.algoarena.service.dsa.QuestionService;
 import com.algoarena.service.dsa.SolutionService;
@@ -34,7 +34,7 @@ public class AdminController {
 
     @Autowired
     private SolutionService solutionService;
-    
+
     @Autowired
     private AdminOverviewService adminOverviewService;
 
@@ -63,24 +63,24 @@ public class AdminController {
     public ResponseEntity<Page<AdminQuestionSummaryDTO>> getAdminQuestionsSummary(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        
+
         Pageable pageable = PageRequest.of(page, size);
         Page<AdminQuestionSummaryDTO> summaries = questionService.getAdminQuestionsSummary(pageable);
-        
+
         return ResponseEntity.ok(summaries);
     }
-    
+
     /**
-     * NEW: Get complete question details for admin
-     * Returns full question content for editing
+     * Get complete question details for admin
+     * Returns full question content for editing (without solutions)
      * 
      * @param id Question ID
-     * @return Complete QuestionDetailDTO
+     * @return Complete QuestionDTO
      */
     @GetMapping("/questions/{id}")
-    public ResponseEntity<QuestionDetailDTO> getAdminQuestionById(@PathVariable String id) {
+    public ResponseEntity<QuestionDTO> getAdminQuestionById(@PathVariable String id) {
         try {
-            QuestionDetailDTO questionDetail = questionService.getAdminQuestionById(id);
+            QuestionDTO questionDetail = questionService.getAdminQuestionById(id);
             return ResponseEntity.ok(questionDetail);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
@@ -99,17 +99,17 @@ public class AdminController {
     public ResponseEntity<Page<AdminSolutionSummaryDTO>> getAdminSolutionsSummary(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        
+
         Pageable pageable = PageRequest.of(page, size);
         Page<AdminSolutionSummaryDTO> summaries = solutionService.getAdminSolutionsSummary(pageable);
-        
+
         return ResponseEntity.ok(summaries);
     }
 
     /**
      * Update display order for a single question
      * 
-     * @param id Question ID
+     * @param id           Question ID
      * @param displayOrder New display order value
      * @return Success response
      */
@@ -117,18 +117,18 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> updateQuestionDisplayOrder(
             @PathVariable String id,
             @RequestParam Integer displayOrder) {
-        
+
         try {
             questionService.updateQuestionDisplayOrder(id, displayOrder);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Display order updated successfully");
             response.put("questionId", id);
             response.put("displayOrder", displayOrder);
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (RuntimeException e) {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
@@ -136,32 +136,32 @@ public class AdminController {
             return ResponseEntity.badRequest().body(response);
         }
     }
-    
+
     /**
      * Batch update display order for multiple questions
      * Used for drag-and-drop reordering in admin panel
      * 
      * Request body format:
      * [
-     *   {"questionId": "id1", "displayOrder": 1},
-     *   {"questionId": "id2", "displayOrder": 2},
-     *   ...
+     * {"questionId": "id1", "displayOrder": 1},
+     * {"questionId": "id2", "displayOrder": 2},
+     * ...
      * ]
      */
     @PutMapping("/questions/display-order/batch")
     public ResponseEntity<Map<String, Object>> batchUpdateDisplayOrder(
             @RequestBody List<Map<String, Object>> updates) {
-        
+
         try {
             int updatedCount = questionService.batchUpdateDisplayOrder(updates);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Display orders updated successfully");
             response.put("updatedCount", updatedCount);
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (RuntimeException e) {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
@@ -169,54 +169,54 @@ public class AdminController {
             return ResponseEntity.badRequest().body(response);
         }
     }
-    
+
     /**
      * Get questions by category and level with display order
      * Used for admin reordering interface
      * 
      * @param categoryId Category ID
-     * @param level Question level (EASY, MEDIUM, HARD)
+     * @param level      Question level (EASY, MEDIUM, HARD)
      * @return List of questions with display order
      */
     @GetMapping("/questions/by-category-level")
     public ResponseEntity<List<Map<String, Object>>> getQuestionsByCategoryAndLevel(
             @RequestParam String categoryId,
             @RequestParam String level) {
-        
+
         try {
-            List<Map<String, Object>> questions = 
-                questionService.getQuestionsByCategoryAndLevelForOrdering(categoryId, level);
-            
+            List<Map<String, Object>> questions = questionService.getQuestionsByCategoryAndLevelForOrdering(categoryId,
+                    level);
+
             return ResponseEntity.ok(questions);
-            
+
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().build();
         }
     }
-    
+
     /**
      * Reset display order for a category and level
      * Re-orders questions based on current order (1, 2, 3, ...)
      * 
      * @param categoryId Category ID
-     * @param level Question level
+     * @param level      Question level
      * @return Success response
      */
     @PostMapping("/questions/display-order/reset")
     public ResponseEntity<Map<String, Object>> resetDisplayOrder(
             @RequestParam String categoryId,
             @RequestParam String level) {
-        
+
         try {
             int updatedCount = questionService.resetDisplayOrder(categoryId, level);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Display orders reset successfully");
             response.put("updatedCount", updatedCount);
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (RuntimeException e) {
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);

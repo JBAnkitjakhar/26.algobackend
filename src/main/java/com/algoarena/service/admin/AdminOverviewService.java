@@ -2,6 +2,8 @@
 package com.algoarena.service.admin;
 
 import com.algoarena.dto.admin.AdminOverviewDTO;
+import com.algoarena.dto.admin.LoggedInUserDTO;
+import com.algoarena.model.User;
 import com.algoarena.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +15,8 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Service for generating admin overview statistics
@@ -53,6 +57,9 @@ public class AdminOverviewService {
         LocalDateTime todayEnd = LocalDate.now().atTime(LocalTime.MAX);
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
         
+        // Get users who logged in today
+        List<LoggedInUserDTO> loggedInUsers = getUsersLoggedInTodayDetails(todayStart, todayEnd);
+        
         // Build overview DTO using builder pattern
         AdminOverviewDTO overview = new AdminOverviewDTO.Builder()
                 .totalUsers(getUserCount())
@@ -60,7 +67,8 @@ public class AdminOverviewService {
                 .totalQuestions(getQuestionCount())
                 .totalSolutions(getSolutionCount())
                 .totalUserApproaches(getUserApproachCount())
-                .usersLoggedInToday(getUsersLoggedInToday(todayStart, todayEnd))
+                .usersLoggedInToday(loggedInUsers.size())
+                .usersLoggedInTodayDetails(loggedInUsers)
                 .questionsLast7Days(getQuestionsCreatedSince(sevenDaysAgo))
                 .solutionsLast7Days(getSolutionsCreatedSince(sevenDaysAgo))
                 .newUsersLast7Days(getNewUsersSince(sevenDaysAgo))
@@ -106,13 +114,24 @@ public class AdminOverviewService {
     }
     
     /**
-     * Get count of users who logged in today
+     * Get details of users who logged in today
      */
-    private long getUsersLoggedInToday(LocalDateTime todayStart, LocalDateTime todayEnd) {
+    private List<LoggedInUserDTO> getUsersLoggedInTodayDetails(LocalDateTime todayStart, LocalDateTime todayEnd) {
         Query query = new Query(Criteria.where("lastLogin")
                 .gte(todayStart)
                 .lte(todayEnd));
-        return mongoTemplate.count(query, "users");
+        
+        List<User> users = mongoTemplate.find(query, User.class);
+        
+        return users.stream()
+                .map(user -> new LoggedInUserDTO(
+                        user.getId(),
+                        user.getName(),
+                        user.getEmail(),
+                        user.getGithubUsername(),
+                        user.getImage()
+                ))
+                .collect(Collectors.toList());
     }
     
     /**
@@ -132,7 +151,7 @@ public class AdminOverviewService {
     }
     
     /**
-     * Get count of new users joined in the last N days
+     * Get count of new users in the last N days
      */
     private long getNewUsersSince(LocalDateTime since) {
         Query query = new Query(Criteria.where("createdAt").gte(since));
@@ -146,8 +165,8 @@ public class AdminOverviewService {
         AdminOverviewDTO.SystemHealthStatus health = new AdminOverviewDTO.SystemHealthStatus();
         
         try {
-            // Check MongoDB connection
-            mongoTemplate.getDb().listCollectionNames().first();
+            // Check database connectivity by attempting a simple query
+            mongoTemplate.count(new Query(), "users");
             health.setDatabaseConnected(true);
             health.setDatabaseStatus("Connected - MongoDB is operational");
         } catch (Exception e) {
@@ -158,54 +177,5 @@ public class AdminOverviewService {
         health.setAppVersion(appVersion);
         
         return health;
-    }
-    
-    /**
-     * Get statistics by date range (useful for custom reports)
-     */
-    public AdminOverviewDTO getOverviewByDateRange(LocalDateTime startDate, LocalDateTime endDate) {
-        // Calculate today's range for login stats
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-        LocalDateTime todayEnd = LocalDate.now().atTime(LocalTime.MAX);
-        
-        // Build overview with custom date range
-        AdminOverviewDTO overview = new AdminOverviewDTO.Builder()
-                .totalUsers(getUserCount())
-                .totalCategories(getCategoryCount())
-                .totalQuestions(getQuestionCount())
-                .totalSolutions(getSolutionCount())
-                .totalUserApproaches(getUserApproachCount())
-                .usersLoggedInToday(getUsersLoggedInToday(todayStart, todayEnd))
-                .questionsLast7Days(getQuestionsCreatedBetween(startDate, endDate))
-                .solutionsLast7Days(getSolutionsCreatedBetween(startDate, endDate))
-                .newUsersLast7Days(getNewUsersBetween(startDate, endDate))
-                .systemHealth(checkSystemHealth())
-                .build();
-        
-        return overview;
-    }
-    
-    /**
-     * Get count of questions created between dates
-     */
-    private long getQuestionsCreatedBetween(LocalDateTime start, LocalDateTime end) {
-        Query query = new Query(Criteria.where("createdAt").gte(start).lte(end));
-        return mongoTemplate.count(query, "questions");
-    }
-    
-    /**
-     * Get count of solutions created between dates
-     */
-    private long getSolutionsCreatedBetween(LocalDateTime start, LocalDateTime end) {
-        Query query = new Query(Criteria.where("createdAt").gte(start).lte(end));
-        return mongoTemplate.count(query, "solutions");
-    }
-    
-    /**
-     * Get count of new users between dates
-     */
-    private long getNewUsersBetween(LocalDateTime start, LocalDateTime end) {
-        Query query = new Query(Criteria.where("createdAt").gte(start).lte(end));
-        return mongoTemplate.count(query, "users");
     }
 }

@@ -17,7 +17,6 @@ import com.algoarena.dto.dsa.QuestionSummaryDTO;
 import com.algoarena.dto.dsa.SolutionDTO;
 import com.algoarena.dto.user.QuestionsMetadataDTO;
 import com.algoarena.model.QuestionLevel;
-import com.algoarena.model.Solution;
 import com.algoarena.model.Question;
 import com.algoarena.model.User;
 import com.algoarena.model.UserProgress;
@@ -562,39 +561,26 @@ public class QuestionService {
     }
 
     /**
-     * Get complete question details for admin
-     * NEW METHOD: Returns full question content for admin editing
-     * 
-     * @param questionId Question ID
-     * @return Complete QuestionDetailDTO with all content
-     */
-    @Cacheable(value = "adminQuestionDetail", key = "#questionId")
-    public QuestionDetailDTO getAdminQuestionById(String questionId) {
-        System.out.println("CACHE MISS: Fetching admin question detail from database");
+ * Get complete question details for admin (WITHOUT solutions)
+ * Returns full question content for admin editing without solutions
+ * 
+ * @param questionId Question ID
+ * @return QuestionDTO with all content except solutions
+ */
+@Cacheable(value = "adminQuestionDetail", key = "#questionId")
+public QuestionDTO getAdminQuestionById(String questionId) {
+    System.out.println("CACHE MISS: Fetching admin question detail from database");
 
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new RuntimeException("Question not found with id: " + questionId));
+    Question question = questionRepository.findById(questionId)
+            .orElseThrow(() -> new RuntimeException("Question not found with id: " + questionId));
 
-        QuestionDetailDTO detailDTO = new QuestionDetailDTO();
-
-        // Question details
-        detailDTO.setQuestion(QuestionDTO.fromEntity(question));
-
-        // Add display order to the question DTO
-        if (detailDTO.getQuestion() != null) {
-            // Note: You may need to add displayOrder field to QuestionDTO if not present
-            detailDTO.getQuestion().setDisplayOrder(question.getDisplayOrder());
-        }
-
-        // Fetch all solutions for this question
-        List<Solution> solutions = solutionRepository.findByQuestion_Id(questionId);
-        List<SolutionDTO> solutionDTOs = solutions.stream()
-                .map(SolutionDTO::fromEntity)
-                .collect(Collectors.toList());
-        detailDTO.setSolutions(solutionDTOs);
-
-        return detailDTO;
-    }
+    QuestionDTO questionDTO = QuestionDTO.fromEntity(question);
+    
+    // Ensure display order is included
+    questionDTO.setDisplayOrder(question.getDisplayOrder());
+    
+    return questionDTO;
+}
 
     /**
      * Get questions metadata (lightweight, cached globally)

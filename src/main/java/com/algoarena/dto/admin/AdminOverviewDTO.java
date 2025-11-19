@@ -2,6 +2,7 @@
 package com.algoarena.dto.admin;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * DTO for admin overview dashboard
@@ -15,7 +16,8 @@ public class AdminOverviewDTO {
     private long totalQuestions;
     private long totalSolutions;
     private long totalUserApproaches;
-    
+    private List<LoggedInUserDTO> usersLoggedInTodayDetails;
+
     // Today's activity
     private long usersLoggedInToday;
     
@@ -110,6 +112,11 @@ public class AdminOverviewDTO {
             return this;
         }
         
+        public Builder usersLoggedInTodayDetails(List<LoggedInUserDTO> users) {
+            dto.usersLoggedInTodayDetails = users;
+            return this;
+        }
+        
         public Builder usersLoggedInToday(long usersLoggedInToday) {
             dto.usersLoggedInToday = usersLoggedInToday;
             return this;
@@ -179,6 +186,14 @@ public class AdminOverviewDTO {
     
     public void setTotalUserApproaches(long totalUserApproaches) {
         this.totalUserApproaches = totalUserApproaches;
+    }
+    
+    public List<LoggedInUserDTO> getUsersLoggedInTodayDetails() {
+        return usersLoggedInTodayDetails;
+    }
+    
+    public void setUsersLoggedInTodayDetails(List<LoggedInUserDTO> usersLoggedInTodayDetails) {
+        this.usersLoggedInTodayDetails = usersLoggedInTodayDetails;
     }
     
     public long getUsersLoggedInToday() {

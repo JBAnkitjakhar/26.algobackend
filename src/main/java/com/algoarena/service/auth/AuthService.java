@@ -69,6 +69,7 @@ public class AuthService {
     private User updateExistingUser(User user, String email, String name, String image,
             String username, String providerId, String registrationId) {
         boolean updated = false;
+
         // Track last login time
         user.setLastLogin(LocalDateTime.now());
         updated = true;
@@ -128,8 +129,6 @@ public class AuthService {
             String providerId, String registrationId) {
         User newUser = new User();
 
-        // Set initial login time
-        newUser.setLastLogin(LocalDateTime.now());
         // Email is optional - only set if available
         if (email != null && !email.trim().isEmpty()) {
             newUser.setEmail(email);
@@ -160,6 +159,9 @@ public class AuthService {
 
         // Set role - check if this is the first user (make them superadmin)
         newUser.setRole(determineUserRole(email));
+
+        // Set initial login time
+        newUser.setLastLogin(LocalDateTime.now());
 
         logger.info("Creating new user - Name: {}, Email: {}, Username: {}",
                 newUser.getName(), newUser.getEmail(), newUser.getGithubUsername());
