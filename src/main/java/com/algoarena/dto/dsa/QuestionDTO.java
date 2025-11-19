@@ -36,6 +36,9 @@ public class QuestionDTO {
 
     @NotNull(message = "Level is required")
     private QuestionLevel level;
+    
+    // NEW: Display order field
+    private Integer displayOrder;
 
     private String createdByName;
     private String createdById;
@@ -86,6 +89,7 @@ public class QuestionDTO {
         this.categoryId = question.getCategory() != null ? question.getCategory().getId() : null;
         this.categoryName = question.getCategory() != null ? question.getCategory().getName() : null;
         this.level = question.getLevel();
+        this.displayOrder = question.getDisplayOrder();  // NEW: Include display order
         this.createdByName = question.getCreatedBy() != null ? question.getCreatedBy().getName() : null;
         this.createdById = question.getCreatedBy() != null ? question.getCreatedBy().getId() : null;
         this.createdAt = question.getCreatedAt();
@@ -124,6 +128,9 @@ public class QuestionDTO {
 
     public QuestionLevel getLevel() { return level; }
     public void setLevel(QuestionLevel level) { this.level = level; }
+    
+    public Integer getDisplayOrder() { return displayOrder; }
+    public void setDisplayOrder(Integer displayOrder) { this.displayOrder = displayOrder; }
 
     public String getCreatedByName() { return createdByName; }
     public void setCreatedByName(String createdByName) { this.createdByName = createdByName; }

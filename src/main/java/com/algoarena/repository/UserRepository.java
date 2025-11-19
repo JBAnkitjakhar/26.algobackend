@@ -7,6 +7,7 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -42,8 +43,15 @@ public interface UserRepository extends MongoRepository<User, String> {
     @Query(value = "{}", count = true)
     long countAllUsers();
 
-    // Find users with pagination (handled by MongoRepository)
-    // List<User> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    // NEW: Count users who logged in within a time range
+    long countByLastLoginBetween(LocalDateTime start, LocalDateTime end);
+    
+    // NEW: Count users created within a time range
+    long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+    
+    // NEW: Find users who logged in today
+    @Query("{ 'lastLogin': { $gte: ?0, $lte: ?1 } }")
+    List<User> findUsersLoggedInBetween(LocalDateTime start, LocalDateTime end);
 
     // Custom query to find user by OAuth provider info
     // This is useful but less reliable than direct provider ID lookups

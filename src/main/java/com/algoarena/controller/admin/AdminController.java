@@ -1,10 +1,14 @@
 // src/main/java/com/algoarena/controller/admin/AdminController.java
 package com.algoarena.controller.admin;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.algoarena.dto.admin.AdminOverviewDTO;
 import com.algoarena.dto.dsa.AdminQuestionSummaryDTO;
 import com.algoarena.dto.dsa.AdminSolutionSummaryDTO;
+import com.algoarena.dto.dsa.QuestionDetailDTO;
+import com.algoarena.service.admin.AdminOverviewService;
 import com.algoarena.service.dsa.QuestionService;
 import com.algoarena.service.dsa.SolutionService;
 
@@ -30,10 +34,26 @@ public class AdminController {
 
     @Autowired
     private SolutionService solutionService;
+    
+    @Autowired
+    private AdminOverviewService adminOverviewService;
+
+    /**
+     * NEW: Get admin overview statistics
+     * Returns all dashboard statistics in a single call
+     * 
+     * @return AdminOverviewDTO with all statistics
+     */
+    @GetMapping("/overview")
+    public ResponseEntity<AdminOverviewDTO> getAdminOverview() {
+        AdminOverviewDTO overview = adminOverviewService.getAdminOverview();
+        return ResponseEntity.ok(overview);
+    }
 
     /**
      * Get admin questions summary (lightweight, paginated)
      * Returns minimal data without full content
+     * UPDATED: Now includes displayOrder field
      * 
      * @param page Page number (default: 0)
      * @param size Page size (default: 20)
@@ -48,6 +68,23 @@ public class AdminController {
         Page<AdminQuestionSummaryDTO> summaries = questionService.getAdminQuestionsSummary(pageable);
         
         return ResponseEntity.ok(summaries);
+    }
+    
+    /**
+     * NEW: Get complete question details for admin
+     * Returns full question content for editing
+     * 
+     * @param id Question ID
+     * @return Complete QuestionDetailDTO
+     */
+    @GetMapping("/questions/{id}")
+    public ResponseEntity<QuestionDetailDTO> getAdminQuestionById(@PathVariable String id) {
+        try {
+            QuestionDetailDTO questionDetail = questionService.getAdminQuestionById(id);
+            return ResponseEntity.ok(questionDetail);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /**

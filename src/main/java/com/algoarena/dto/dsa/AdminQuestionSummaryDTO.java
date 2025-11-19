@@ -14,6 +14,7 @@ public class AdminQuestionSummaryDTO {
     private String title;
     private QuestionLevel level;
     private String categoryName;
+    private Integer displayOrder;  // NEW: Display order field
     private int imageCount;
     private boolean hasCodeSnippets;
     private String createdByName;
@@ -21,19 +22,20 @@ public class AdminQuestionSummaryDTO {
     
     // Dynamic counts (fetched from repositories)
     private int solutionCount;
-    private int approachCount;
-    private int solvedByCount;
+    // REMOVED: approachCount and solvedByCount
     
     // Constructors
     public AdminQuestionSummaryDTO() {}
     
     public AdminQuestionSummaryDTO(String id, String title, QuestionLevel level, 
-                                  String categoryName, int imageCount, boolean hasCodeSnippets,
-                                  String createdByName, LocalDateTime updatedAt) {
+                                  String categoryName, Integer displayOrder, int imageCount, 
+                                  boolean hasCodeSnippets, String createdByName, 
+                                  LocalDateTime updatedAt) {
         this.id = id;
         this.title = title;
         this.level = level;
         this.categoryName = categoryName;
+        this.displayOrder = displayOrder;
         this.imageCount = imageCount;
         this.hasCodeSnippets = hasCodeSnippets;
         this.createdByName = createdByName;
@@ -71,6 +73,14 @@ public class AdminQuestionSummaryDTO {
     
     public void setCategoryName(String categoryName) {
         this.categoryName = categoryName;
+    }
+    
+    public Integer getDisplayOrder() {
+        return displayOrder;
+    }
+    
+    public void setDisplayOrder(Integer displayOrder) {
+        this.displayOrder = displayOrder;
     }
     
     public int getImageCount() {
@@ -111,21 +121,5 @@ public class AdminQuestionSummaryDTO {
     
     public void setSolutionCount(int solutionCount) {
         this.solutionCount = solutionCount;
-    }
-    
-    public int getApproachCount() {
-        return approachCount;
-    }
-    
-    public void setApproachCount(int approachCount) {
-        this.approachCount = approachCount;
-    }
-    
-    public int getSolvedByCount() {
-        return solvedByCount;
-    }
-    
-    public void setSolvedByCount(int solvedByCount) {
-        this.solvedByCount = solvedByCount;
     }
 }

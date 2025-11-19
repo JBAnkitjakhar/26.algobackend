@@ -41,6 +41,9 @@ public class User implements UserDetails {
 
     private UserRole role = UserRole.USER;
 
+    // NEW FIELD: Track last login time for admin stats
+    private LocalDateTime lastLogin;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -171,6 +174,14 @@ public class User implements UserDetails {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public LocalDateTime getLastLogin() {
+        return lastLogin;
+    }
+
+    public void setLastLogin(LocalDateTime lastLogin) {
+        this.lastLogin = lastLogin;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -214,6 +225,7 @@ public class User implements UserDetails {
                 ", email='" + email + '\'' +
                 ", githubUsername='" + githubUsername + '\'' +
                 ", role=" + role +
+                ", lastLogin=" + lastLogin +
                 ", createdAt=" + createdAt +
                 '}';
     }

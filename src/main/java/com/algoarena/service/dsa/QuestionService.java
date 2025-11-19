@@ -2,6 +2,7 @@
 
 package com.algoarena.service.dsa;
 
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import com.algoarena.dto.dsa.QuestionSummaryDTO;
 import com.algoarena.dto.dsa.SolutionDTO;
 import com.algoarena.dto.user.QuestionsMetadataDTO;
 import com.algoarena.model.QuestionLevel;
+import com.algoarena.model.Solution;
 import com.algoarena.model.Question;
 import com.algoarena.model.User;
 import com.algoarena.model.UserProgress;
@@ -194,85 +196,153 @@ public class QuestionService {
     // ====================
 
     /**
-     * Create question with PROPER cache eviction using @CacheEvict
+     * Create a new question
+     * UPDATED: Now handles displayOrder field
      */
-    @CacheEvict(value = { "questionsSummary", "questionsList", "categoriesProgress", "adminStats" }, allEntries = true)
-    public QuestionDTO createQuestion(QuestionDTO questionDTO, User createdBy) {
-        // Find category
-        Category category = categoryRepository.findById(questionDTO.getCategoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata" }, allEntries = true)
+    @Transactional
+    public QuestionDTO createQuestion(QuestionDTO questionDTO, User currentUser) {
+        // Check if question with same title already exists
+        if (questionRepository.existsByTitleIgnoreCase(questionDTO.getTitle())) {
+            throw new RuntimeException("Question with this title already exists");
+        }
 
         Question question = new Question();
-        question.setTitle(questionDTO.getTitle().trim());
+        question.setTitle(questionDTO.getTitle());
         question.setStatement(questionDTO.getStatement());
         question.setImageUrls(questionDTO.getImageUrls());
-        question.setCategory(category);
-        question.setLevel(questionDTO.getLevel());
-        question.setCreatedBy(createdBy);
+        question.setImageFolderUrl(questionDTO.getImageFolderUrl());
 
+        // Convert code snippets
         if (questionDTO.getCodeSnippets() != null) {
-            List<Question.CodeSnippet> codeSnippets = questionDTO.getCodeSnippets().stream()
-                    .map(dto -> new Question.CodeSnippet(dto.getLanguage(), dto.getCode(), dto.getDescription()))
-                    .collect(Collectors.toList());
-            question.setCodeSnippets(codeSnippets);
+            List<Question.CodeSnippet> snippets = questionDTO.getCodeSnippets().stream()
+                    .map(dto -> {
+                        Question.CodeSnippet snippet = new Question.CodeSnippet();
+                        snippet.setLanguage(dto.getLanguage());
+                        snippet.setCode(dto.getCode());
+                        snippet.setDescription(dto.getDescription());
+                        return snippet;
+                    })
+                    .toList();
+            question.setCodeSnippets(snippets);
         }
+
+        // Set category
+        Category category = categoryRepository.findById(questionDTO.getCategoryId())
+                .orElseThrow(() -> new RuntimeException("Category not found"));
+        question.setCategory(category);
+
+        question.setLevel(questionDTO.getLevel());
+
+        // NEW: Handle displayOrder - if not provided, auto-assign based on max existing
+        // order
+        if (questionDTO.getDisplayOrder() != null) {
+            question.setDisplayOrder(questionDTO.getDisplayOrder());
+        } else {
+            // Auto-assign display order based on existing questions in same category/level
+            Integer maxOrder = questionRepository.findMaxDisplayOrderByCategoryAndLevel(
+                    category.getId(), questionDTO.getLevel());
+            question.setDisplayOrder(maxOrder != null ? maxOrder + 1 : 1);
+        }
+
+        question.setCreatedBy(currentUser);
+        question.setCreatedAt(LocalDateTime.now());
+        question.setUpdatedAt(LocalDateTime.now());
 
         Question savedQuestion = questionRepository.save(question);
 
-        // System.out.println("Question created and ALL relevant caches evicted");
+        System.out.println("✓ Created new question: " + savedQuestion.getTitle() +
+                " with displayOrder: " + savedQuestion.getDisplayOrder());
 
         return QuestionDTO.fromEntity(savedQuestion);
     }
 
     /**
-     * Update question with PROPER cache eviction using @CacheEvict
+     * Update an existing question
+     * UPDATED: Now handles displayOrder field
      */
-    @CacheEvict(value = { "questionsSummary", "questionsList", "categoriesProgress", "adminStats" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata",
+            "adminQuestionDetail" }, allEntries = true)
+    @Transactional
     public QuestionDTO updateQuestion(String id, QuestionDTO questionDTO) {
         Question question = questionRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Question not found"));
+                .orElseThrow(() -> new RuntimeException("Question not found with id: " + id));
 
-        // Find category if changed
-        if (!question.getCategory().getId().equals(questionDTO.getCategoryId())) {
-            Category newCategory = categoryRepository.findById(questionDTO.getCategoryId())
-                    .orElseThrow(() -> new RuntimeException("Category not found"));
-            question.setCategory(newCategory);
+        // Check if changing title to an existing one
+        if (!question.getTitle().equals(questionDTO.getTitle()) &&
+                questionRepository.existsByTitleIgnoreCase(questionDTO.getTitle())) {
+            throw new RuntimeException("Question with this title already exists");
         }
 
-        question.setTitle(questionDTO.getTitle().trim());
+        question.setTitle(questionDTO.getTitle());
         question.setStatement(questionDTO.getStatement());
         question.setImageUrls(questionDTO.getImageUrls());
+        question.setImageFolderUrl(questionDTO.getImageFolderUrl());
+
+        // Convert code snippets
+        if (questionDTO.getCodeSnippets() != null) {
+            List<Question.CodeSnippet> snippets = questionDTO.getCodeSnippets().stream()
+                    .map(dto -> {
+                        Question.CodeSnippet snippet = new Question.CodeSnippet();
+                        snippet.setLanguage(dto.getLanguage());
+                        snippet.setCode(dto.getCode());
+                        snippet.setDescription(dto.getDescription());
+                        return snippet;
+                    })
+                    .toList();
+            question.setCodeSnippets(snippets);
+        }
+
+        // Update category if changed
+        if (!question.getCategory().getId().equals(questionDTO.getCategoryId())) {
+            Category category = categoryRepository.findById(questionDTO.getCategoryId())
+                    .orElseThrow(() -> new RuntimeException("Category not found"));
+            question.setCategory(category);
+        }
+
         question.setLevel(questionDTO.getLevel());
 
-        if (questionDTO.getCodeSnippets() != null) {
-            List<Question.CodeSnippet> codeSnippets = questionDTO.getCodeSnippets().stream()
-                    .map(dto -> new Question.CodeSnippet(dto.getLanguage(), dto.getCode(), dto.getDescription()))
-                    .collect(Collectors.toList());
-            question.setCodeSnippets(codeSnippets);
+        // NEW: Update displayOrder if provided
+        if (questionDTO.getDisplayOrder() != null) {
+            question.setDisplayOrder(questionDTO.getDisplayOrder());
         }
+
+        question.setUpdatedAt(LocalDateTime.now());
 
         Question updatedQuestion = questionRepository.save(question);
 
-        // System.out.println("Question updated and ALL relevant caches evicted");
+        System.out.println("✓ Updated question: " + updatedQuestion.getTitle() +
+                " with displayOrder: " + updatedQuestion.getDisplayOrder());
 
         return QuestionDTO.fromEntity(updatedQuestion);
     }
 
     /**
-     * Delete question with PROPER cache eviction using @CacheEvict
+     * Delete a question
+     * UPDATED: Includes cache eviction for metadata
      */
-    @CacheEvict(value = { "questionsSummary", "questionsList", "categoriesProgress", "adminStats" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata",
+            "adminQuestionDetail" }, allEntries = true)
     @Transactional
     public void deleteQuestion(String id) {
-        // Delete all related data
+        if (!questionRepository.existsById(id)) {
+            throw new RuntimeException("Question not found with id: " + id);
+        }
+
+        // Delete related solutions first
         solutionRepository.deleteByQuestion_Id(id);
+
+        // Delete related approaches
         approachRepository.deleteByQuestion_Id(id);
+
+        // Delete user progress
         userProgressRepository.deleteByQuestion_Id(id);
 
         // Delete the question
         questionRepository.deleteById(id);
 
-        // System.out.println("Question deleted and ALL relevant caches evicted");
+        // System.out.println("✓ Deleted question with id: " + id + " and all related
+        // data");
     }
 
     // ==================== EXISTING METHODS ====================
@@ -461,11 +531,13 @@ public class QuestionService {
     /**
      * Get admin questions summary (lightweight, cached)
      * Returns paginated summary without full content
+     * UPDATED: Includes displayOrder, removes approachCount and solvedByCount
      */
     @Cacheable(value = "adminQuestionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
     public Page<AdminQuestionSummaryDTO> getAdminQuestionsSummary(Pageable pageable) {
         System.out.println("CACHE MISS: Fetching admin questions summary from database");
 
+        // Fetch questions ordered by createdAt desc (latest first)
         Page<Question> questions = questionRepository.findAllByOrderByCreatedAtDesc(pageable);
 
         return questions.map(question -> {
@@ -474,23 +546,63 @@ public class QuestionService {
             dto.setTitle(question.getTitle());
             dto.setLevel(question.getLevel());
             dto.setCategoryName(question.getCategory() != null ? question.getCategory().getName() : "Unknown");
+            dto.setDisplayOrder(question.getDisplayOrder()); // NEW: Include display order
             dto.setImageCount(question.getImageUrls() != null ? question.getImageUrls().size() : 0);
             dto.setHasCodeSnippets(question.getCodeSnippets() != null && !question.getCodeSnippets().isEmpty());
             dto.setCreatedByName(question.getCreatedBy() != null ? question.getCreatedBy().getName() : "Unknown");
             dto.setUpdatedAt(question.getUpdatedAt());
 
-            // Fetch dynamic counts
+            // Fetch solution count only
             dto.setSolutionCount((int) solutionRepository.countByQuestion_Id(question.getId()));
-            dto.setApproachCount((int) approachRepository.countByQuestion_Id(question.getId()));
-            dto.setSolvedByCount((int) userProgressRepository.countByQuestion_IdAndSolved(question.getId(), true));
+
+            // REMOVED: approachCount and solvedByCount
 
             return dto;
         });
     }
 
     /**
+     * Get complete question details for admin
+     * NEW METHOD: Returns full question content for admin editing
+     * 
+     * @param questionId Question ID
+     * @return Complete QuestionDetailDTO with all content
+     */
+    @Cacheable(value = "adminQuestionDetail", key = "#questionId")
+    public QuestionDetailDTO getAdminQuestionById(String questionId) {
+        System.out.println("CACHE MISS: Fetching admin question detail from database");
+
+        Question question = questionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Question not found with id: " + questionId));
+
+        QuestionDetailDTO detailDTO = new QuestionDetailDTO();
+
+        // Question details
+        detailDTO.setQuestion(QuestionDTO.fromEntity(question));
+
+        // Add display order to the question DTO
+        if (detailDTO.getQuestion() != null) {
+            // Note: You may need to add displayOrder field to QuestionDTO if not present
+            detailDTO.getQuestion().setDisplayOrder(question.getDisplayOrder());
+        }
+
+        // Fetch all solutions for this question
+        List<Solution> solutions = solutionRepository.findByQuestion_Id(questionId);
+        List<SolutionDTO> solutionDTOs = solutions.stream()
+                .map(SolutionDTO::fromEntity)
+                .collect(Collectors.toList());
+        detailDTO.setSolutions(solutionDTOs);
+
+        // No user progress needed for admin view
+        detailDTO.setUserProgress(null);
+
+        return detailDTO;
+    }
+
+    /**
      * Get questions metadata (lightweight, cached globally)
-     * Returns map of question ID -> title + level
+     * UPDATED: Now includes category name for each question
+     * Endpoint changed from /api/user/questions/metadata to /api/questions/metadata
      */
     @Cacheable(value = "questionsMetadata")
     public QuestionsMetadataDTO getQuestionsMetadata() {
@@ -501,10 +613,14 @@ public class QuestionService {
         Map<String, QuestionsMetadataDTO.QuestionMetadata> metadataMap = new HashMap<>();
 
         for (Question question : allQuestions) {
+            String categoryName = question.getCategory() != null ? question.getCategory().getName() : "Unknown";
+
             QuestionsMetadataDTO.QuestionMetadata metadata = new QuestionsMetadataDTO.QuestionMetadata(
                     question.getId(),
                     question.getTitle(),
-                    question.getLevel());
+                    question.getLevel(),
+                    categoryName // NEW: Include category name
+            );
             metadataMap.put(question.getId(), metadata);
         }
 

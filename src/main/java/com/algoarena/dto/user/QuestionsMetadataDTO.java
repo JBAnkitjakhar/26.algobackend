@@ -20,14 +20,16 @@ public class QuestionsMetadataDTO {
         private String id;
         private String title;
         private QuestionLevel level;
+        private String categoryName;  // NEW: Added category name
         
         // Constructor
         public QuestionMetadata() {}
         
-        public QuestionMetadata(String id, String title, QuestionLevel level) {
+        public QuestionMetadata(String id, String title, QuestionLevel level, String categoryName) {
             this.id = id;
             this.title = title;
             this.level = level;
+            this.categoryName = categoryName;
         }
         
         // Getters and Setters
@@ -53,6 +55,14 @@ public class QuestionsMetadataDTO {
         
         public void setLevel(QuestionLevel level) {
             this.level = level;
+        }
+        
+        public String getCategoryName() {
+            return categoryName;
+        }
+        
+        public void setCategoryName(String categoryName) {
+            this.categoryName = categoryName;
         }
     }
     

@@ -4,6 +4,7 @@ package com.algoarena.controller.dsa;
 import com.algoarena.dto.dsa.QuestionDTO;
 import com.algoarena.dto.dsa.QuestionDetailDTO;
 import com.algoarena.dto.dsa.QuestionSummaryDTO;
+import com.algoarena.dto.user.QuestionsMetadataDTO;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.QuestionService;
 import jakarta.validation.Valid;
@@ -98,7 +99,22 @@ public class QuestionController {
     }
 
     /**
-     * NEW OPTIMIZED ENDPOINT: Get questions summary with user progress
+     * NEW ENDPOINT: Get questions metadata (lightweight)
+     * Contains question ID, title, level, and category name for all questions
+     * Used for dropdowns and displaying titles in admin section
+     * MOVED FROM: /api/user/questions/metadata to /api/questions/metadata
+     * 
+     * @return QuestionsMetadataDTO with all questions metadata
+     */
+    @GetMapping("/metadata")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<QuestionsMetadataDTO> getQuestionsMetadata() {
+        QuestionsMetadataDTO metadata = questionService.getQuestionsMetadata();
+        return ResponseEntity.ok(metadata);
+    }
+
+    /**
+     * Get questions summary with user progress
      * This endpoint eliminates N+1 queries by fetching user progress in bulk
      * GET /api/questions/summary
      */

@@ -2,12 +2,10 @@
 package com.algoarena.controller.user;
 
 import com.algoarena.dto.user.GlobalCategoryInfoDTO;
-import com.algoarena.dto.user.QuestionsMetadataDTO;
 import com.algoarena.dto.user.UserMeStatsDTO;
 import com.algoarena.dto.user.UserProgressMapDTO;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.CategoryService;
-import com.algoarena.service.dsa.QuestionService;
 import com.algoarena.service.user.UserStatsService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -29,9 +27,6 @@ public class UserController {
 
     @Autowired
     private CategoryService categoryService;
-
-    @Autowired
-    private QuestionService questionService;
 
     /**
      * Get complete ME page statistics
@@ -85,16 +80,6 @@ public class UserController {
         return ResponseEntity.ok(progressMap);
     }
 
-    /**
-     * Get questions metadata (lightweight)
-     * Contains question ID, title, and level for all questions
-     * Used for dropdowns and displaying titles
-     * 
-     * @return QuestionsMetadataDTO with all questions metadata
-     */
-    @GetMapping("/questions/metadata")
-    public ResponseEntity<QuestionsMetadataDTO> getQuestionsMetadata() {
-        QuestionsMetadataDTO metadata = questionService.getQuestionsMetadata();
-        return ResponseEntity.ok(metadata);
-    }
+    // REMOVED: getQuestionsMetadata endpoint
+    // This endpoint has been moved to QuestionController at /api/questions/metadata
 }
