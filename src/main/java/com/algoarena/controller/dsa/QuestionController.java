@@ -2,8 +2,6 @@
 package com.algoarena.controller.dsa;
 
 import com.algoarena.dto.dsa.QuestionDTO;
-import com.algoarena.dto.dsa.QuestionDetailDTO;
-import com.algoarena.dto.dsa.QuestionSummaryDTO;
 import com.algoarena.dto.user.QuestionsMetadataDTO;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.QuestionService;
@@ -35,19 +33,6 @@ public class QuestionController {
             @RequestParam(required = false) String search) {
         Page<QuestionDTO> questions = questionService.getAllQuestions(pageable, categoryId, level, search);
         return ResponseEntity.ok(questions);
-    }
-
-    @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<QuestionDetailDTO> getQuestionDetails(
-            @PathVariable String id,
-            Authentication authentication) {
-        User currentUser = (User) authentication.getPrincipal();
-        QuestionDetailDTO questionDetail = questionService.getQuestionDetails(id, currentUser.getId());
-        if (questionDetail == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(questionDetail);
     }
 
     @PostMapping
@@ -112,25 +97,5 @@ public class QuestionController {
         QuestionsMetadataDTO metadata = questionService.getQuestionsMetadata();
         return ResponseEntity.ok(metadata);
     }
-
-    /**
-     * Get questions summary with user progress
-     * This endpoint eliminates N+1 queries by fetching user progress in bulk
-     * GET /api/questions/summary
-     */
-    @GetMapping("/summary")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Page<QuestionSummaryDTO>> getQuestionsSummaryWithProgress(
-            Pageable pageable,
-            @RequestParam(required = false) String categoryId,
-            @RequestParam(required = false) String level,
-            @RequestParam(required = false) String search,
-            Authentication authentication) {
-        User currentUser = (User) authentication.getPrincipal();
-
-        Page<QuestionSummaryDTO> questionsSummary = questionService.getQuestionsWithProgress(
-                pageable, categoryId, level, search, currentUser.getId());
-
-        return ResponseEntity.ok(questionsSummary);
-    }
+ 
 }

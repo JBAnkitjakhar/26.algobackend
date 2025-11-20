@@ -5,131 +5,225 @@ import com.algoarena.model.QuestionLevel;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Complete user statistics for ME page
- * Returns all stats + recent activity in one API call
- */
 public class UserMeStatsDTO {
     
-    // Overall stats
-    private int totalQuestions;
-    private int totalSolved;
-    private double progressPercentage;
+    private StatsOverview stats;
+    private PaginatedSolvedQuestions solvedQuestions;
     
-    // Progress by level
-    private LevelStatsDTO progressByLevel;
-    
-    // Recent activity (last 7 days)
-    private int recentSolvedCount;
-    
-    // Recent solved questions (paginated, newest first)
-    private List<RecentSolvedQuestionDTO> recentSolvedQuestions;
-    
-    // Nested class for level-wise stats
-    public static class LevelStatsDTO {
-        private int easyTotal;
+    public static class StatsOverview {
+        private int totalSolved;
         private int easySolved;
-        private int mediumTotal;
         private int mediumSolved;
-        private int hardTotal;
         private int hardSolved;
+        private LocalDateTime lastSolvedAt;
         
-        // Constructors
-        public LevelStatsDTO() {}
+        public StatsOverview() {}
         
-        public LevelStatsDTO(int easyTotal, int easySolved, int mediumTotal, 
-                           int mediumSolved, int hardTotal, int hardSolved) {
-            this.easyTotal = easyTotal;
+        public StatsOverview(int totalSolved, int easySolved, int mediumSolved, int hardSolved, LocalDateTime lastSolvedAt) {
+            this.totalSolved = totalSolved;
             this.easySolved = easySolved;
-            this.mediumTotal = mediumTotal;
             this.mediumSolved = mediumSolved;
-            this.hardTotal = hardTotal;
+            this.hardSolved = hardSolved;
+            this.lastSolvedAt = lastSolvedAt;
+        }
+        
+        public int getTotalSolved() {
+            return totalSolved;
+        }
+        
+        public void setTotalSolved(int totalSolved) {
+            this.totalSolved = totalSolved;
+        }
+        
+        public int getEasySolved() {
+            return easySolved;
+        }
+        
+        public void setEasySolved(int easySolved) {
+            this.easySolved = easySolved;
+        }
+        
+        public int getMediumSolved() {
+            return mediumSolved;
+        }
+        
+        public void setMediumSolved(int mediumSolved) {
+            this.mediumSolved = mediumSolved;
+        }
+        
+        public int getHardSolved() {
+            return hardSolved;
+        }
+        
+        public void setHardSolved(int hardSolved) {
             this.hardSolved = hardSolved;
         }
         
-        // Getters and Setters
-        public int getEasyTotal() { return easyTotal; }
-        public void setEasyTotal(int easyTotal) { this.easyTotal = easyTotal; }
+        public LocalDateTime getLastSolvedAt() {
+            return lastSolvedAt;
+        }
         
-        public int getEasySolved() { return easySolved; }
-        public void setEasySolved(int easySolved) { this.easySolved = easySolved; }
-        
-        public int getMediumTotal() { return mediumTotal; }
-        public void setMediumTotal(int mediumTotal) { this.mediumTotal = mediumTotal; }
-        
-        public int getMediumSolved() { return mediumSolved; }
-        public void setMediumSolved(int mediumSolved) { this.mediumSolved = mediumSolved; }
-        
-        public int getHardTotal() { return hardTotal; }
-        public void setHardTotal(int hardTotal) { this.hardTotal = hardTotal; }
-        
-        public int getHardSolved() { return hardSolved; }
-        public void setHardSolved(int hardSolved) { this.hardSolved = hardSolved; }
+        public void setLastSolvedAt(LocalDateTime lastSolvedAt) {
+            this.lastSolvedAt = lastSolvedAt;
+        }
     }
     
-    // Nested class for recent solved question
-    public static class RecentSolvedQuestionDTO {
+    public static class SolvedQuestionInfo {
         private String questionId;
         private String title;
         private String category;
         private QuestionLevel level;
         private LocalDateTime solvedAt;
-        private int approachCount;
         
-        // Constructors
-        public RecentSolvedQuestionDTO() {}
+        public SolvedQuestionInfo() {}
         
-        public RecentSolvedQuestionDTO(String questionId, String title, String category,
-                                      QuestionLevel level, LocalDateTime solvedAt, int approachCount) {
+        public SolvedQuestionInfo(String questionId, String title, String category, QuestionLevel level, LocalDateTime solvedAt) {
             this.questionId = questionId;
             this.title = title;
             this.category = category;
             this.level = level;
             this.solvedAt = solvedAt;
-            this.approachCount = approachCount;
         }
         
-        // Getters and Setters
-        public String getQuestionId() { return questionId; }
-        public void setQuestionId(String questionId) { this.questionId = questionId; }
+        public String getQuestionId() {
+            return questionId;
+        }
         
-        public String getTitle() { return title; }
-        public void setTitle(String title) { this.title = title; }
+        public void setQuestionId(String questionId) {
+            this.questionId = questionId;
+        }
         
-        public String getCategory() { return category; }
-        public void setCategory(String category) { this.category = category; }
+        public String getTitle() {
+            return title;
+        }
         
-        public QuestionLevel getLevel() { return level; }
-        public void setLevel(QuestionLevel level) { this.level = level; }
+        public void setTitle(String title) {
+            this.title = title;
+        }
         
-        public LocalDateTime getSolvedAt() { return solvedAt; }
-        public void setSolvedAt(LocalDateTime solvedAt) { this.solvedAt = solvedAt; }
+        public String getCategory() {
+            return category;
+        }
         
-        public int getApproachCount() { return approachCount; }
-        public void setApproachCount(int approachCount) { this.approachCount = approachCount; }
+        public void setCategory(String category) {
+            this.category = category;
+        }
+        
+        public QuestionLevel getLevel() {
+            return level;
+        }
+        
+        public void setLevel(QuestionLevel level) {
+            this.level = level;
+        }
+        
+        public LocalDateTime getSolvedAt() {
+            return solvedAt;
+        }
+        
+        public void setSolvedAt(LocalDateTime solvedAt) {
+            this.solvedAt = solvedAt;
+        }
     }
     
-    // Main class constructors
+    public static class PaginatedSolvedQuestions {
+        private List<SolvedQuestionInfo> questions;
+        private int currentPage;
+        private int pageSize;
+        private long totalElements;
+        private int totalPages;
+        private boolean hasNext;
+        private boolean hasPrevious;
+        
+        public PaginatedSolvedQuestions() {}
+        
+        public PaginatedSolvedQuestions(List<SolvedQuestionInfo> questions, int currentPage, int pageSize, long totalElements, int totalPages, boolean hasNext, boolean hasPrevious) {
+            this.questions = questions;
+            this.currentPage = currentPage;
+            this.pageSize = pageSize;
+            this.totalElements = totalElements;
+            this.totalPages = totalPages;
+            this.hasNext = hasNext;
+            this.hasPrevious = hasPrevious;
+        }
+        
+        public List<SolvedQuestionInfo> getQuestions() {
+            return questions;
+        }
+        
+        public void setQuestions(List<SolvedQuestionInfo> questions) {
+            this.questions = questions;
+        }
+        
+        public int getCurrentPage() {
+            return currentPage;
+        }
+        
+        public void setCurrentPage(int currentPage) {
+            this.currentPage = currentPage;
+        }
+        
+        public int getPageSize() {
+            return pageSize;
+        }
+        
+        public void setPageSize(int pageSize) {
+            this.pageSize = pageSize;
+        }
+        
+        public long getTotalElements() {
+            return totalElements;
+        }
+        
+        public void setTotalElements(long totalElements) {
+            this.totalElements = totalElements;
+        }
+        
+        public int getTotalPages() {
+            return totalPages;
+        }
+        
+        public void setTotalPages(int totalPages) {
+            this.totalPages = totalPages;
+        }
+        
+        public boolean isHasNext() {
+            return hasNext;
+        }
+        
+        public void setHasNext(boolean hasNext) {
+            this.hasNext = hasNext;
+        }
+        
+        public boolean isHasPrevious() {
+            return hasPrevious;
+        }
+        
+        public void setHasPrevious(boolean hasPrevious) {
+            this.hasPrevious = hasPrevious;
+        }
+    }
+    
     public UserMeStatsDTO() {}
     
-    // Main class getters and setters
-    public int getTotalQuestions() { return totalQuestions; }
-    public void setTotalQuestions(int totalQuestions) { this.totalQuestions = totalQuestions; }
+    public UserMeStatsDTO(StatsOverview stats, PaginatedSolvedQuestions solvedQuestions) {
+        this.stats = stats;
+        this.solvedQuestions = solvedQuestions;
+    }
     
-    public int getTotalSolved() { return totalSolved; }
-    public void setTotalSolved(int totalSolved) { this.totalSolved = totalSolved; }
+    public StatsOverview getStats() {
+        return stats;
+    }
     
-    public double getProgressPercentage() { return progressPercentage; }
-    public void setProgressPercentage(double progressPercentage) { this.progressPercentage = progressPercentage; }
+    public void setStats(StatsOverview stats) {
+        this.stats = stats;
+    }
     
-    public LevelStatsDTO getProgressByLevel() { return progressByLevel; }
-    public void setProgressByLevel(LevelStatsDTO progressByLevel) { this.progressByLevel = progressByLevel; }
+    public PaginatedSolvedQuestions getSolvedQuestions() {
+        return solvedQuestions;
+    }
     
-    public int getRecentSolvedCount() { return recentSolvedCount; }
-    public void setRecentSolvedCount(int recentSolvedCount) { this.recentSolvedCount = recentSolvedCount; }
-    
-    public List<RecentSolvedQuestionDTO> getRecentSolvedQuestions() { return recentSolvedQuestions; }
-    public void setRecentSolvedQuestions(List<RecentSolvedQuestionDTO> recentSolvedQuestions) { 
-        this.recentSolvedQuestions = recentSolvedQuestions; 
+    public void setSolvedQuestions(PaginatedSolvedQuestions solvedQuestions) {
+        this.solvedQuestions = solvedQuestions;
     }
 }

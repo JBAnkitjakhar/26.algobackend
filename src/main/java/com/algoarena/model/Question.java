@@ -30,7 +30,7 @@ public class Question {
 
     private QuestionLevel level;
     
-    // NEW: Display order for user category view (questions within same level)
+    // NEW: Display order 
     private Integer displayOrder;
 
     @DBRef

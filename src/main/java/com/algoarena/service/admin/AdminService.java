@@ -56,17 +56,8 @@ public class AdminService {
 
         // Progress statistics
         long totalProgress = userProgressRepository.count();
-        long totalSolved = userProgressRepository.countTotalSolvedQuestions();
         
         stats.put("totalProgress", totalProgress);
-        stats.put("totalSolved", totalSolved);
-        
-        // Calculate engagement metrics
-        double avgProgressPerUser = totalUsers > 0 ? (double) totalProgress / totalUsers : 0.0;
-        double avgSolvedPerUser = totalUsers > 0 ? (double) totalSolved / totalUsers : 0.0;
-        
-        stats.put("avgProgressPerUser", Math.round(avgProgressPerUser * 100.0) / 100.0);
-        stats.put("avgSolvedPerUser", Math.round(avgSolvedPerUser * 100.0) / 100.0);
 
         // Recent activity (last 7 days) - placeholder implementation
         stats.put("recentUsers", "0"); // Would implement with date queries

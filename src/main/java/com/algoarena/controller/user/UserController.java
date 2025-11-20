@@ -1,42 +1,26 @@
 // src/main/java/com/algoarena/controller/user/UserController.java
 package com.algoarena.controller.user;
 
-import com.algoarena.dto.user.GlobalCategoryInfoDTO;
 import com.algoarena.dto.user.UserMeStatsDTO;
-import com.algoarena.dto.user.UserProgressMapDTO;
 import com.algoarena.model.User;
-import com.algoarena.service.dsa.CategoryService;
-import com.algoarena.service.user.UserStatsService;
+import com.algoarena.service.dsa.UserProgressService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-/**
- * User-specific controller for optimized user endpoints
- * All endpoints require authentication
- */
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/user")
 @PreAuthorize("isAuthenticated()")
 public class UserController {
 
     @Autowired
-    private UserStatsService userStatsService;
+    private UserProgressService userProgressService;
 
-    @Autowired
-    private CategoryService categoryService;
-
-    /**
-     * Get complete ME page statistics
-     * Returns all user stats + recent activity in ONE call
-     * 
-     * @param page Page number for recent solved questions (default: 0)
-     * @param size Page size for recent solved questions (default: 15)
-     * @param authentication Current user
-     * @return UserMeStatsDTO with complete statistics
-     */
     @GetMapping("/me/stats")
     public ResponseEntity<UserMeStatsDTO> getUserMeStats(
             @RequestParam(defaultValue = "0") int page,
@@ -44,42 +28,52 @@ public class UserController {
             Authentication authentication) {
         
         User currentUser = (User) authentication.getPrincipal();
-        UserMeStatsDTO stats = userStatsService.getUserMeStats(currentUser.getId(), page, size);
+        UserMeStatsDTO stats = userProgressService.getUserMeStats(currentUser.getId(), page, size);
         
         return ResponseEntity.ok(stats);
     }
 
-    /**
-     * Get global categories information
-     * Contains all categories with questions grouped by level (displayOrder)
-     * This data is SAME for all users, heavily cached
-     * 
-     * @return GlobalCategoryInfoDTO with all categories
-     */
-    @GetMapping("/categories/info")
-    public ResponseEntity<GlobalCategoryInfoDTO> getGlobalCategoriesInfo() {
-        GlobalCategoryInfoDTO categoriesInfo = categoryService.getGlobalCategoriesInfo();
-        return ResponseEntity.ok(categoriesInfo);
-    }
-
-    /**
-     * Get user's progress map
-     * Contains only questions user has solved + approach counts
-     * User-specific, cached per user
-     * 
-     * @param authentication Current user
-     * @return UserProgressMapDTO with solved questions
-     */
-    @GetMapping("/progress/map")
-    public ResponseEntity<UserProgressMapDTO> getUserProgressMap(
+    @GetMapping("/me/progress/{questionId}")
+    public ResponseEntity<Map<String, Boolean>> getQuestionProgress(
+            @PathVariable String questionId,
             Authentication authentication) {
         
         User currentUser = (User) authentication.getPrincipal();
-        UserProgressMapDTO progressMap = userStatsService.getUserProgressMap(currentUser.getId());
+        boolean solved = userProgressService.isQuestionSolved(currentUser.getId(), questionId);
         
-        return ResponseEntity.ok(progressMap);
+        Map<String, Boolean> response = new HashMap<>();
+        response.put("solved", solved);
+        
+        return ResponseEntity.ok(response);
     }
 
-    // REMOVED: getQuestionsMetadata endpoint
-    // This endpoint has been moved to QuestionController at /api/questions/metadata
+    @PostMapping("/me/mark/{questionId}")
+    public ResponseEntity<Map<String, Object>> markQuestion(
+            @PathVariable String questionId,
+            Authentication authentication) {
+        
+        User currentUser = (User) authentication.getPrincipal();
+        userProgressService.markQuestionAsSolved(currentUser.getId(), questionId);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Question marked as solved successfully");
+        
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/me/unmark/{questionId}")
+    public ResponseEntity<Map<String, Object>> unmarkQuestion(
+            @PathVariable String questionId,
+            Authentication authentication) {
+        
+        User currentUser = (User) authentication.getPrincipal();
+        userProgressService.unmarkQuestionAsSolved(currentUser.getId(), questionId);
+        
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Question unmarked successfully");
+        
+        return ResponseEntity.ok(response);
+    }
 }

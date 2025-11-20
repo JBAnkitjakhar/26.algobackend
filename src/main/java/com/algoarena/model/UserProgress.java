@@ -1,106 +1,220 @@
 // src/main/java/com/algoarena/model/UserProgress.java
-
 package com.algoarena.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.DBRef;
-import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Document(collection = "userprogress")
-@CompoundIndex(def = "{'user': 1, 'question': 1}", unique = true)
 public class UserProgress {
 
     @Id
     private String id;
+    
+    @Indexed(unique = true)
+    private String userId;
+    
+    private Map<String, SolvedQuestion> solvedQuestions = new HashMap<>();
+    
+    private int totalSolved = 0;
+    private int easySolved = 0;
+    private int mediumSolved = 0;
+    private int hardSolved = 0;
+    
+    private LocalDateTime lastSolvedAt;
+    private LocalDateTime createdAt;
 
-    @DBRef
-    private User user;
-
-    @DBRef
-    private Question question;
-
-    private boolean solved;
-    private QuestionLevel level;
-    private LocalDateTime solvedAt;
-
-    // Constructors
-    public UserProgress() {}
-
-    public UserProgress(User user, Question question, boolean solved, QuestionLevel level) {
-        this.user = user;
-        this.question = question;
-        this.solved = solved;
-        this.level = level;
-        if (solved) {
-            this.solvedAt = LocalDateTime.now();
+    public static class SolvedQuestion {
+        private String questionId;
+        private String title;
+        private String category;
+        private QuestionLevel level;
+        private LocalDateTime solvedAt;
+        
+        public SolvedQuestion() {}
+        
+        public SolvedQuestion(String questionId, String title, String category, 
+                            QuestionLevel level, LocalDateTime solvedAt) {
+            this.questionId = questionId;
+            this.title = title;
+            this.category = category;
+            this.level = level;
+            this.solvedAt = solvedAt;
+        }
+        
+        public String getQuestionId() {
+            return questionId;
+        }
+        
+        public void setQuestionId(String questionId) {
+            this.questionId = questionId;
+        }
+        
+        public String getTitle() {
+            return title;
+        }
+        
+        public void setTitle(String title) {
+            this.title = title;
+        }
+        
+        public String getCategory() {
+            return category;
+        }
+        
+        public void setCategory(String category) {
+            this.category = category;
+        }
+        
+        public QuestionLevel getLevel() {
+            return level;
+        }
+        
+        public void setLevel(QuestionLevel level) {
+            this.level = level;
+        }
+        
+        public LocalDateTime getSolvedAt() {
+            return solvedAt;
+        }
+        
+        public void setSolvedAt(LocalDateTime solvedAt) {
+            this.solvedAt = solvedAt;
         }
     }
-
-    // Getters and Setters
+    
+    public UserProgress() {
+        this.createdAt = LocalDateTime.now();
+    }
+    
+    public UserProgress(String userId) {
+        this.id = userId;
+        this.userId = userId;
+        this.createdAt = LocalDateTime.now();
+    }
+    
+    public void addSolvedQuestion(String questionId, String title, String category, QuestionLevel level) {
+        if (!solvedQuestions.containsKey(questionId)) {
+            SolvedQuestion solved = new SolvedQuestion(questionId, title, category, level, LocalDateTime.now());
+            solvedQuestions.put(questionId, solved);
+            
+            totalSolved++;
+            switch (level) {
+                case EASY:
+                    easySolved++;
+                    break;
+                case MEDIUM:
+                    mediumSolved++;
+                    break;
+                case HARD:
+                    hardSolved++;
+                    break;
+            }
+            
+            lastSolvedAt = LocalDateTime.now();
+        }
+    }
+    
+    public boolean isQuestionSolved(String questionId) {
+        return solvedQuestions.containsKey(questionId);
+    }
+    
+    public SolvedQuestion getSolvedQuestion(String questionId) {
+        return solvedQuestions.get(questionId);
+    }
+    
+    public void removeSolvedQuestion(String questionId) {
+        SolvedQuestion removed = solvedQuestions.remove(questionId);
+        if (removed != null) {
+            totalSolved--;
+            switch (removed.getLevel()) {
+                case EASY:
+                    easySolved--;
+                    break;
+                case MEDIUM:
+                    mediumSolved--;
+                    break;
+                case HARD:
+                    hardSolved--;
+                    break;
+            }
+        }
+    }
+    
     public String getId() {
         return id;
     }
-
+    
     public void setId(String id) {
         this.id = id;
     }
-
-    public User getUser() {
-        return user;
+    
+    public String getUserId() {
+        return userId;
     }
-
-    public void setUser(User user) {
-        this.user = user;
+    
+    public void setUserId(String userId) {
+        this.userId = userId;
+        this.id = userId;
     }
-
-    public Question getQuestion() {
-        return question;
+    
+    public Map<String, SolvedQuestion> getSolvedQuestions() {
+        return solvedQuestions;
     }
-
-    public void setQuestion(Question question) {
-        this.question = question;
+    
+    public void setSolvedQuestions(Map<String, SolvedQuestion> solvedQuestions) {
+        this.solvedQuestions = solvedQuestions;
     }
-
-    public boolean isSolved() {
-        return solved;
+    
+    public int getTotalSolved() {
+        return totalSolved;
     }
-
-    public void setSolved(boolean solved) {
-        this.solved = solved;
-        if (solved && this.solvedAt == null) {
-            this.solvedAt = LocalDateTime.now();
-        } else if (!solved) {
-            this.solvedAt = null;
-        }
+    
+    public void setTotalSolved(int totalSolved) {
+        this.totalSolved = totalSolved;
     }
-
-    public QuestionLevel getLevel() {
-        return level;
+    
+    public int getEasySolved() {
+        return easySolved;
     }
-
-    public void setLevel(QuestionLevel level) {
-        this.level = level;
+    
+    public void setEasySolved(int easySolved) {
+        this.easySolved = easySolved;
     }
-
-    public LocalDateTime getSolvedAt() {
-        return solvedAt;
+    
+    public int getMediumSolved() {
+        return mediumSolved;
     }
-
-    public void setSolvedAt(LocalDateTime solvedAt) {
-        this.solvedAt = solvedAt;
+    
+    public void setMediumSolved(int mediumSolved) {
+        this.mediumSolved = mediumSolved;
     }
-
-    @Override
-    public String toString() {
-        return "UserProgress{" +
-                "id='" + id + '\'' +
-                ", user=" + (user != null ? user.getName() : "null") +
-                ", question=" + (question != null ? question.getTitle() : "null") +
-                ", solved=" + solved +
-                ", level=" + level +
-                '}';
+    
+    public int getHardSolved() {
+        return hardSolved;
+    }
+    
+    public void setHardSolved(int hardSolved) {
+        this.hardSolved = hardSolved;
+    }
+    
+    public LocalDateTime getLastSolvedAt() {
+        return lastSolvedAt;
+    }
+    
+    public void setLastSolvedAt(LocalDateTime lastSolvedAt) {
+        this.lastSolvedAt = lastSolvedAt;
+    }
+    
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+    
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

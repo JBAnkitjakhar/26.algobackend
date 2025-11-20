@@ -2,7 +2,6 @@
 package com.algoarena.controller.dsa;
 
 import com.algoarena.dto.dsa.CategoryDTO;
-import com.algoarena.dto.dsa.CategorySummaryDTO;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.CategoryService;
 import jakarta.validation.Valid;
@@ -12,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,79 +22,197 @@ public class CategoryController {
     @Autowired
     private CategoryService categoryService;
 
+    /**
+     * GET /api/categories
+     * Get all categories with question IDs
+     * Returns: Map<String, CategoryDTO> with category name as key
+     * 
+     * Response format:
+     * {
+     *   "Arrays": { id, name, displayOrder, easyQuestionIds, mediumQuestionIds, hardQuestionIds, counts, ... },
+     *   "HashMap": { ... },
+     *   ...
+     * }
+     */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<CategoryDTO>> getAllCategories() {
-        List<CategoryDTO> categories = categoryService.getAllCategories();
+    public ResponseEntity<Map<String, CategoryDTO>> getAllCategories() {
+        Map<String, CategoryDTO> categories = categoryService.getAllCategories();
         return ResponseEntity.ok(categories);
     }
 
+    /**
+     * GET /api/categories/{id}
+     * Get single category by ID
+     */
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<CategoryDTO> getCategoryById(@PathVariable String id) {
-        CategoryDTO category = categoryService.getCategoryById(id);
-        if (category == null) {
+        try {
+            CategoryDTO category = categoryService.getCategoryById(id);
+            return ResponseEntity.ok(category);
+        } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(category);
     }
 
+    /**
+     * POST /api/categories
+     * Create new category
+     * Auto-assigns displayOrder (highest + 1)
+     * 
+     * Request body:
+     * {
+     *   "name": "New Category"
+     * }
+     */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<CategoryDTO> createCategory(
+    public ResponseEntity<Map<String, Object>> createCategory(
             @Valid @RequestBody CategoryDTO categoryDTO,
             Authentication authentication) {
-        User currentUser = (User) authentication.getPrincipal();
-        CategoryDTO createdCategory = categoryService.createCategory(categoryDTO, currentUser);
-        return ResponseEntity.status(201).body(createdCategory);
+        try {
+            User currentUser = (User) authentication.getPrincipal();
+            CategoryDTO createdCategory = categoryService.createCategory(categoryDTO, currentUser);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category created successfully");
+            response.put("data", createdCategory);
+            
+            return ResponseEntity.status(201).body(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to create category");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
     }
 
+    /**
+     * PUT /api/categories/{id}
+     * Update category name and/or displayOrder
+     * 
+     * Request body:
+     * {
+     *   "name": "Updated Name",       // optional
+     *   "displayOrder": 5             // optional
+     * }
+     */
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<CategoryDTO> updateCategory(
+    public ResponseEntity<Map<String, Object>> updateCategory(
             @PathVariable String id,
             @Valid @RequestBody CategoryDTO categoryDTO) {
         try {
             CategoryDTO updatedCategory = categoryService.updateCategory(id, categoryDTO);
-            return ResponseEntity.ok(updatedCategory);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Category updated successfully");
+            response.put("data", updatedCategory);
+            
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to update category");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
+    /**
+     * DELETE /api/categories/{id}
+     * Delete category and all its questions (cascade)
+     */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
     public ResponseEntity<Map<String, Object>> deleteCategory(@PathVariable String id) {
         try {
-            int deletedQuestions = categoryService.deleteCategory(id);
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "deletedQuestions", deletedQuestions));
+            Map<String, Object> result = categoryService.deleteCategory(id);
+            return ResponseEntity.ok(result);
         } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to delete category");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
         }
     }
 
-    @GetMapping("/{id}/stats")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Map<String, Object>> getCategoryStats(@PathVariable String id) {
-        Map<String, Object> stats = categoryService.getCategoryStats(id);
-        return ResponseEntity.ok(stats);
+    /**
+     * PUT /api/categories/{id}/display-order
+     * Update category display order
+     * 
+     * Request body:
+     * {
+     *   "displayOrder": 5
+     * }
+     */
+    @PutMapping("/{id}/display-order")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<Map<String, Object>> updateCategoryDisplayOrder(
+            @PathVariable String id,
+            @RequestBody Map<String, Integer> request) {
+        try {
+            Integer newOrder = request.get("displayOrder");
+            if (newOrder == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("error", "displayOrder is required");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            CategoryDTO updatedCategory = categoryService.updateCategoryDisplayOrder(id, newOrder);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Display order updated successfully");
+            response.put("data", updatedCategory);
+            
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to update display order");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
     }
 
     /**
-     * NEW OPTIMIZED ENDPOINT: Get all categories with user progress included
-     * This eliminates N+1 queries by including progress stats in single API call
-     * GET /api/categories/with-progress
+     * PUT /api/categories/display-order/batch
+     * Batch update category display orders
+     * 
+     * Request body:
+     * {
+     *   "categoryId1": 1,
+     *   "categoryId2": 2,
+     *   "categoryId3": 3
+     * }
      */
-    @GetMapping("/with-progress")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<CategorySummaryDTO>> getCategoriesWithProgress(Authentication authentication) {
-        User currentUser = (User) authentication.getPrincipal();
-
-        List<CategorySummaryDTO> categoriesWithProgress = categoryService
-                .getCategoriesWithProgress(currentUser.getId());
-
-        return ResponseEntity.ok(categoriesWithProgress);
+    @PutMapping("/display-order/batch")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<Map<String, Object>> batchUpdateDisplayOrder(
+            @RequestBody Map<String, Integer> orderMap) {
+        try {
+            List<CategoryDTO> updatedCategories = categoryService.batchUpdateDisplayOrder(orderMap);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Display orders updated successfully");
+            response.put("data", updatedCategories);
+            response.put("updatedCount", updatedCategories.size());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to batch update display orders");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
     }
 }

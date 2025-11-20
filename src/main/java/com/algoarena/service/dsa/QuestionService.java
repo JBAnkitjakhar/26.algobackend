@@ -1,5 +1,4 @@
-// src/main/java/com/algoarena/service/dsa/QuestionService.java  
-
+// src/main/java/com/algoarena/service/dsa/QuestionService.java
 package com.algoarena.service.dsa;
 
 import java.time.LocalDateTime;
@@ -7,25 +6,19 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.algoarena.dto.dsa.AdminQuestionSummaryDTO;
 import com.algoarena.dto.dsa.QuestionDTO;
-import com.algoarena.dto.dsa.QuestionDetailDTO;
-import com.algoarena.dto.dsa.QuestionSummaryDTO;
-import com.algoarena.dto.dsa.SolutionDTO;
 import com.algoarena.dto.user.QuestionsMetadataDTO;
 import com.algoarena.model.QuestionLevel;
 import com.algoarena.model.Question;
 import com.algoarena.model.User;
-import com.algoarena.model.UserProgress;
 import com.algoarena.model.Category;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.repository.CategoryRepository;
 import com.algoarena.repository.SolutionRepository;
 import com.algoarena.repository.ApproachRepository;
-import com.algoarena.repository.UserProgressRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
@@ -33,8 +26,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -53,110 +44,13 @@ public class QuestionService {
     private ApproachRepository approachRepository;
 
     @Autowired
-    private UserProgressRepository userProgressRepository;
-
-    @Autowired
-    private SolutionService solutionService;
-
-    @Autowired
     private UserProgressService userProgressService;
 
     @Autowired
-    private BulkApproachService bulkApproachService;
+    private CategoryService categoryService; // NEW: Inject CategoryService
 
-    // ==================== HYBRID CACHING METHODS ====================
-
-    /**
-     * HYBRID: Get questions summary with user progress - CACHED with smart eviction
-     * Cache key includes all filter parameters for proper cache segmentation
-     */
-    @Cacheable(value = "questionsSummary", key = "#userId + '_page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize + '_cat_' + (#categoryId ?: 'all') + '_lvl_' + (#level ?: 'all') + '_search_' + (#search ?: 'none')")
-    public Page<QuestionSummaryDTO> getQuestionsWithProgress(
-            Pageable pageable,
-            String categoryId,
-            String level,
-            String search,
-            String userId) {
-
-        // System.out.println("CACHE MISS: Fetching fresh questions data for user: " +
-        // userId);
-
-        // Step 1: Get questions with filtering
-        Page<Question> questionsPage = getAllQuestionsFiltered(pageable, categoryId, level, search);
-
-        // Step 2: Get all question IDs from the page
-        List<String> questionIds = questionsPage.getContent()
-                .stream()
-                .map(Question::getId)
-                .collect(Collectors.toList());
-
-        if (questionIds.isEmpty()) {
-            return new PageImpl<>(List.of(), pageable, 0);
-        }
-
-        // Step 3: Get user progress for these questions (optimized)
-        Map<String, UserProgress> progressMap = new HashMap<>();
-        for (String questionId : questionIds) {
-            Optional<UserProgress> progress = userProgressRepository.findByUser_IdAndQuestion_Id(userId, questionId);
-            if (progress.isPresent()) {
-                progressMap.put(questionId, progress.get());
-            }
-        }
-
-        // System.out.println(
-        // "DEBUG: Found " + progressMap.size() + " progress records out of " +
-        // questionIds.size() + " questions");
-
-        // Step 4: TRULY BULK - Get approach counts using single aggregation query
-        // System.out.println("DEBUG: Using bulk approach count service for " +
-        // questionIds.size() + " questions for user: " + userId);
-
-        Map<String, Integer> approachCountMap = bulkApproachService.getBulkApproachCounts(userId, questionIds);
-
-        // Step 5: Convert to QuestionSummaryDTO with embedded user progress and
-        // approach counts
-        List<QuestionSummaryDTO> summaryList = questionsPage.getContent()
-                .stream()
-                .map(question -> {
-                    QuestionSummaryDTO summary = new QuestionSummaryDTO(
-                            question.getId(),
-                            question.getTitle(),
-                            question.getCategory().getId(),
-                            question.getCategory().getName(),
-                            question.getLevel(),
-                            question.getCreatedAt());
-
-                    // Add user progress
-                    UserProgress progress = progressMap.get(question.getId());
-                    int approachCount = approachCountMap.getOrDefault(question.getId(), 0);
-
-                    if (progress != null && progress.isSolved()) {
-                        summary.setUserProgress(new QuestionSummaryDTO.UserProgressSummary(
-                                true,
-                                progress.getSolvedAt(),
-                                approachCount));
-                    } else {
-                        summary.setUserProgress(new QuestionSummaryDTO.UserProgressSummary(
-                                false,
-                                null,
-                                approachCount));
-                    }
-
-                    return summary;
-                })
-                .collect(Collectors.toList());
-
-        // Return paginated result
-        return new PageImpl<>(summaryList, pageable, questionsPage.getTotalElements());
-    }
-
-    /**
-     * Helper method to get filtered questions (can be cached separately)
-     */
     @Cacheable(value = "questionsList", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize + '_cat_' + (#categoryId ?: 'all') + '_lvl_' + (#level ?: 'all') + '_search_' + (#search ?: 'none')")
     public Page<Question> getAllQuestionsFiltered(Pageable pageable, String categoryId, String level, String search) {
-        // System.out.println("CACHE MISS: Fetching filtered questions from database");
-
         Page<Question> questions;
 
         if (search != null && !search.trim().isEmpty()) {
@@ -191,17 +85,13 @@ public class QuestionService {
         return questions;
     }
 
-    // ==================== CRUD OPERATIONS WITH PROPER CACHE EVICTION
-    // ====================
-
     /**
-     * Create a new question
-     * UPDATED: Now handles displayOrder field
+     * CREATE QUESTION - UPDATED TO MAINTAIN CATEGORY LISTS
      */
-    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary",
+            "questionsMetadata" }, allEntries = true)
     @Transactional
     public QuestionDTO createQuestion(QuestionDTO questionDTO, User currentUser) {
-        // Check if question with same title already exists
         if (questionRepository.existsByTitleIgnoreCase(questionDTO.getTitle())) {
             throw new RuntimeException("Question with this title already exists");
         }
@@ -212,7 +102,6 @@ public class QuestionService {
         question.setImageUrls(questionDTO.getImageUrls());
         question.setImageFolderUrl(questionDTO.getImageFolderUrl());
 
-        // Convert code snippets
         if (questionDTO.getCodeSnippets() != null) {
             List<Question.CodeSnippet> snippets = questionDTO.getCodeSnippets().stream()
                     .map(dto -> {
@@ -226,29 +115,35 @@ public class QuestionService {
             question.setCodeSnippets(snippets);
         }
 
-        // Set category
         Category category = categoryRepository.findById(questionDTO.getCategoryId())
                 .orElseThrow(() -> new RuntimeException("Category not found"));
         question.setCategory(category);
 
         question.setLevel(questionDTO.getLevel());
 
-        // NEW: Handle displayOrder - if not provided, auto-assign based on max existing
-        // order
         if (questionDTO.getDisplayOrder() != null) {
             question.setDisplayOrder(questionDTO.getDisplayOrder());
         } else {
-            // Auto-assign display order based on existing questions in same category/level
-            Integer maxOrder = questionRepository.findMaxDisplayOrderByCategoryAndLevel(
-                    category.getId(), questionDTO.getLevel());
-            question.setDisplayOrder(maxOrder != null ? maxOrder + 1 : 1);
+            Integer maxOrder = questionRepository.findTop1ByCategory_IdAndLevelOrderByDisplayOrderDesc(
+                    category.getId(),
+                    questionDTO.getLevel())
+                    .map(Question::getDisplayOrder)
+                    .orElse(0);
+            question.setDisplayOrder(maxOrder + 1);
         }
 
         question.setCreatedBy(currentUser);
         question.setCreatedAt(LocalDateTime.now());
         question.setUpdatedAt(LocalDateTime.now());
 
+        // STEP 1: Save question to get ID
         Question savedQuestion = questionRepository.save(question);
+
+        // STEP 2: Add question ID to category's question list
+        categoryService.addQuestionToCategory(
+                savedQuestion.getCategory().getId(),
+                savedQuestion.getId(),
+                savedQuestion.getLevel());
 
         System.out.println("✓ Created new question: " + savedQuestion.getTitle() +
                 " with displayOrder: " + savedQuestion.getDisplayOrder());
@@ -257,28 +152,29 @@ public class QuestionService {
     }
 
     /**
-     * Update an existing question
-     * UPDATED: Now handles displayOrder field
+     * UPDATE QUESTION - UPDATED TO MAINTAIN CATEGORY LISTS
      */
-    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata",
+    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary", "questionsMetadata",
             "adminQuestionDetail" }, allEntries = true)
     @Transactional
     public QuestionDTO updateQuestion(String id, QuestionDTO questionDTO) {
         Question question = questionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Question not found with id: " + id));
 
-        // Check if changing title to an existing one
         if (!question.getTitle().equals(questionDTO.getTitle()) &&
                 questionRepository.existsByTitleIgnoreCase(questionDTO.getTitle())) {
             throw new RuntimeException("Question with this title already exists");
         }
+
+        // Store old values for category list maintenance
+        String oldCategoryId = question.getCategory().getId();
+        QuestionLevel oldLevel = question.getLevel();
 
         question.setTitle(questionDTO.getTitle());
         question.setStatement(questionDTO.getStatement());
         question.setImageUrls(questionDTO.getImageUrls());
         question.setImageFolderUrl(questionDTO.getImageFolderUrl());
 
-        // Convert code snippets
         if (questionDTO.getCodeSnippets() != null) {
             List<Question.CodeSnippet> snippets = questionDTO.getCodeSnippets().stream()
                     .map(dto -> {
@@ -292,16 +188,32 @@ public class QuestionService {
             question.setCodeSnippets(snippets);
         }
 
-        // Update category if changed
-        if (!question.getCategory().getId().equals(questionDTO.getCategoryId())) {
-            Category category = categoryRepository.findById(questionDTO.getCategoryId())
-                    .orElseThrow(() -> new RuntimeException("Category not found"));
-            question.setCategory(category);
+        // Check if category or level changed
+        boolean categoryChanged = !oldCategoryId.equals(questionDTO.getCategoryId());
+        boolean levelChanged = oldLevel != questionDTO.getLevel();
+
+        if (categoryChanged || levelChanged) {
+            // Update category reference if changed
+            if (categoryChanged) {
+                Category category = categoryRepository.findById(questionDTO.getCategoryId())
+                        .orElseThrow(() -> new RuntimeException("Category not found"));
+                question.setCategory(category);
+            }
+
+            // Update level if changed
+            if (levelChanged) {
+                question.setLevel(questionDTO.getLevel());
+            }
+
+            // CRITICAL: Update category question lists
+            categoryService.moveQuestion(
+                    oldCategoryId,
+                    question.getCategory().getId(),
+                    question.getId(),
+                    oldLevel,
+                    question.getLevel());
         }
 
-        question.setLevel(questionDTO.getLevel());
-
-        // NEW: Update displayOrder if provided
         if (questionDTO.getDisplayOrder() != null) {
             question.setDisplayOrder(questionDTO.getDisplayOrder());
         }
@@ -317,54 +229,36 @@ public class QuestionService {
     }
 
     /**
-     * Delete a question
-     * UPDATED: Includes cache eviction for metadata
+     * DELETE QUESTION - UPDATED TO MAINTAIN CATEGORY LISTS
      */
-    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata",
+    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary", "questionsMetadata",
             "adminQuestionDetail" }, allEntries = true)
     @Transactional
     public void deleteQuestion(String id) {
-        if (!questionRepository.existsById(id)) {
-            throw new RuntimeException("Question not found with id: " + id);
-        }
+        Question question = questionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Question not found with id: " + id));
 
-        // Delete related solutions first
+        // STEP 1: Remove question ID from category's list
+        categoryService.removeQuestionFromCategory(
+                question.getCategory().getId(),
+                question.getId(),
+                question.getLevel());
+
+        // STEP 2: Delete related data
         solutionRepository.deleteByQuestion_Id(id);
-
-        // Delete related approaches
         approachRepository.deleteByQuestion_Id(id);
 
-        // Delete user progress
-        userProgressRepository.deleteByQuestion_Id(id);
+        int removedFromUsers = userProgressService.removeQuestionFromAllUsers(id);
+        System.out.println("✓ Removed question from " + removedFromUsers + " users' progress");
 
-        // Delete the question
+        // STEP 3: Delete question
         questionRepository.deleteById(id);
-
-        // System.out.println("✓ Deleted question with id: " + id + " and all related
-        // data");
+        System.out.println("✓ Deleted question: " + question.getTitle());
     }
-
-    // ==================== EXISTING METHODS ====================
 
     public Page<QuestionDTO> getAllQuestions(Pageable pageable, String categoryId, String level, String search) {
         Page<Question> questions = getAllQuestionsFiltered(pageable, categoryId, level, search);
         return questions.map(QuestionDTO::fromEntity);
-    }
-
-    public QuestionDetailDTO getQuestionDetails(String questionId, String userId) {
-        Question question = questionRepository.findById(questionId).orElse(null);
-        if (question == null) {
-            return null;
-        }
-
-        QuestionDTO questionDTO = QuestionDTO.fromEntity(question);
-        List<SolutionDTO> solutions = solutionService.getSolutionsByQuestion(questionId);
-
-        var userProgress = userProgressService.getProgressByQuestionAndUser(questionId, userId);
-        boolean solved = userProgress != null ? userProgress.isSolved() : false;
-        var solvedAt = userProgress != null ? userProgress.getSolvedAt() : null;
-
-        return new QuestionDetailDTO(questionDTO, solutions, solved, solvedAt);
     }
 
     public Page<QuestionDTO> getQuestionsByCategory(String categoryId, Pageable pageable) {
@@ -387,8 +281,6 @@ public class QuestionService {
 
     @Cacheable(value = "adminStats", key = "'questionCounts'")
     public Map<String, Object> getQuestionCounts() {
-        // System.out.println("CACHE MISS: Fetching question counts from database");
-
         Map<String, Object> counts = new HashMap<>();
 
         long totalQuestions = questionRepository.count();
@@ -427,11 +319,7 @@ public class QuestionService {
                 .toList();
     }
 
-    /**
-     * Update display order for a single question
-     * Evicts relevant caches after update
-     */
-    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary" }, allEntries = true)
     @Transactional
     public void updateQuestionDisplayOrder(String questionId, Integer displayOrder) {
         Question question = questionRepository.findById(questionId)
@@ -444,14 +332,7 @@ public class QuestionService {
                 " for question: " + question.getTitle());
     }
 
-    /**
-     * Batch update display order for multiple questions
-     * Used for drag-and-drop reordering
-     * 
-     * @param updates List of maps containing questionId and displayOrder
-     * @return Number of questions updated
-     */
-    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary" }, allEntries = true)
     @Transactional
     public int batchUpdateDisplayOrder(List<Map<String, Object>> updates) {
         int updatedCount = 0;
@@ -472,21 +353,13 @@ public class QuestionService {
         return updatedCount;
     }
 
-    /**
-     * Get questions by category and level for ordering interface
-     * Returns minimal data needed for reordering
-     */
-    public List<Map<String, Object>> getQuestionsByCategoryAndLevelForOrdering(
-            String categoryId, String levelStr) {
-
+    public List<Map<String, Object>> getQuestionsByCategoryAndLevelForOrdering(String categoryId, String levelStr) {
         QuestionLevel level = QuestionLevel.valueOf(levelStr.toUpperCase());
         List<Question> questions = questionRepository.findByCategory_IdAndLevel(categoryId, level);
 
-        // Sort by displayOrder (nulls last)
         questions.sort(Comparator.comparing(
                 q -> q.getDisplayOrder() != null ? q.getDisplayOrder() : Integer.MAX_VALUE));
 
-        // Return minimal data
         return questions.stream()
                 .map(q -> {
                     Map<String, Object> map = new HashMap<>();
@@ -499,22 +372,16 @@ public class QuestionService {
                 .toList();
     }
 
-    /**
-     * Reset display order for all questions in a category and level
-     * Re-numbers them sequentially (1, 2, 3, ...) based on current displayOrder
-     */
-    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary" }, allEntries = true)
     @Transactional
     public int resetDisplayOrder(String categoryId, String levelStr) {
         QuestionLevel level = QuestionLevel.valueOf(levelStr.toUpperCase());
         List<Question> questions = questionRepository.findByCategory_IdAndLevel(categoryId, level);
 
-        // Sort by current displayOrder (nulls last), then by createdAt
         questions.sort(Comparator
                 .comparing((Question q) -> q.getDisplayOrder() != null ? q.getDisplayOrder() : Integer.MAX_VALUE)
                 .thenComparing(Question::getCreatedAt));
 
-        // Re-assign sequential display orders
         int order = 1;
         for (Question question : questions) {
             question.setDisplayOrder(order++);
@@ -527,16 +394,10 @@ public class QuestionService {
         return questions.size();
     }
 
-    /**
-     * Get admin questions summary (lightweight, cached)
-     * Returns paginated summary without full content
-     * UPDATED: Includes displayOrder, removes approachCount and solvedByCount
-     */
     @Cacheable(value = "adminQuestionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
     public Page<AdminQuestionSummaryDTO> getAdminQuestionsSummary(Pageable pageable) {
         System.out.println("CACHE MISS: Fetching admin questions summary from database");
 
-        // Fetch questions ordered by createdAt desc (latest first)
         Page<Question> questions = questionRepository.findAllByOrderByCreatedAtDesc(pageable);
 
         return questions.map(question -> {
@@ -545,16 +406,12 @@ public class QuestionService {
             dto.setTitle(question.getTitle());
             dto.setLevel(question.getLevel());
             dto.setCategoryName(question.getCategory() != null ? question.getCategory().getName() : "Unknown");
-            dto.setDisplayOrder(question.getDisplayOrder()); // NEW: Include display order
+            dto.setDisplayOrder(question.getDisplayOrder());
             dto.setImageCount(question.getImageUrls() != null ? question.getImageUrls().size() : 0);
             dto.setHasCodeSnippets(question.getCodeSnippets() != null && !question.getCodeSnippets().isEmpty());
             dto.setCreatedByName(question.getCreatedBy() != null ? question.getCreatedBy().getName() : "Unknown");
             dto.setUpdatedAt(question.getUpdatedAt());
-
-            // Fetch solution count only
             dto.setSolutionCount((int) solutionRepository.countByQuestion_Id(question.getId()));
-
-            // REMOVED: approachCount and solvedByCount
 
             return dto;
         });
@@ -581,11 +438,6 @@ public class QuestionService {
         return questionDTO;
     }
 
-    /**
-     * Get questions metadata (lightweight, cached globally)
-     * UPDATED: Now includes category name for each question
-     * Endpoint changed from /api/user/questions/metadata to /api/questions/metadata
-     */
     @Cacheable(value = "questionsMetadata")
     public QuestionsMetadataDTO getQuestionsMetadata() {
         System.out.println("CACHE MISS: Fetching questions metadata from database");
@@ -601,8 +453,7 @@ public class QuestionService {
                     question.getId(),
                     question.getTitle(),
                     question.getLevel(),
-                    categoryName // NEW: Include category name
-            );
+                    categoryName);
             metadataMap.put(question.getId(), metadata);
         }
 
