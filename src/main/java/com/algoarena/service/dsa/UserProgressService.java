@@ -8,6 +8,7 @@ import com.algoarena.dto.user.UserMeStatsDTO.PaginatedSolvedQuestions;
 import com.algoarena.model.Question;
 import com.algoarena.model.UserProgress;
 import com.algoarena.model.UserProgress.SolvedQuestion;
+import com.algoarena.repository.CategoryRepository;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.repository.UserProgressRepository;
 import org.slf4j.Logger;
@@ -32,6 +33,9 @@ public class UserProgressService {
 
     @Autowired
     private QuestionRepository questionRepository;
+
+    @Autowired
+    private CategoryRepository categoryRepository;
 
     @Cacheable(value = "userMeStats", key = "#userId + '-' + #page + '-' + #size")
     public UserMeStatsDTO getUserMeStats(String userId, int page, int size) {
@@ -177,4 +181,6 @@ public class UserProgressService {
         logger.info("Removed total {} question entries from all users' progress", totalRemoved);
         return totalRemoved;
     }
+
+    
 }

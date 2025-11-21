@@ -1,6 +1,7 @@
 // src/main/java/com/algoarena/controller/user/UserController.java
 package com.algoarena.controller.user;
 
+import com.algoarena.dto.user.CategoryProgressDTO;
 import com.algoarena.dto.user.UserMeStatsDTO;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.UserProgressService;
@@ -75,5 +76,21 @@ public class UserController {
         response.put("message", "Question unmarked successfully");
         
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get user's solved questions for a specific category
+     * Returns only questionIds with solvedAt timestamps
+     */
+    @GetMapping("/me/progress/category/{categoryId}")
+    public ResponseEntity<CategoryProgressDTO> getCategoryProgress(
+            @PathVariable String categoryId,
+            Authentication authentication) {
+        
+        User currentUser = (User) authentication.getPrincipal();
+        CategoryProgressDTO progress = userProgressService
+            .getCategoryProgress(currentUser.getId(), categoryId);
+        
+        return ResponseEntity.ok(progress);
     }
 }

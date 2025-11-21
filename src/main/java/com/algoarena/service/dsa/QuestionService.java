@@ -284,25 +284,18 @@ public class QuestionService {
     public Map<String, Object> getQuestionCounts() {
         Map<String, Object> counts = new HashMap<>();
 
+        // Total questions - O(1) - single aggregation query
         long totalQuestions = questionRepository.count();
         counts.put("total", totalQuestions);
 
+        // Level counts - O(1) for each level = O(3) ≈ O(1)
+        // MongoDB uses indexes on the 'level' field for efficient counting
         Map<String, Long> levelCounts = new HashMap<>();
         levelCounts.put("easy", questionRepository.countByLevel(QuestionLevel.EASY));
         levelCounts.put("medium", questionRepository.countByLevel(QuestionLevel.MEDIUM));
         levelCounts.put("hard", questionRepository.countByLevel(QuestionLevel.HARD));
         counts.put("byLevel", levelCounts);
-
-        List<Category> categories = categoryRepository.findAll();
-        Map<String, Object> categoryStats = new HashMap<>();
-        for (Category category : categories) {
-            Map<String, Object> categoryData = new HashMap<>();
-            categoryData.put("name", category.getName());
-            categoryData.put("count", questionRepository.countByCategory_Id(category.getId()));
-            categoryStats.put(category.getId(), categoryData);
-        }
-        counts.put("byCategory", categoryStats);
-
+ 
         return counts;
     }
 
