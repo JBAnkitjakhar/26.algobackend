@@ -1,7 +1,8 @@
 // src/main/java/com/algoarena/controller/dsa/ApproachController.java
 package com.algoarena.controller.dsa;
 
-import com.algoarena.dto.dsa.ApproachDTO;
+import com.algoarena.dto.dsa.ApproachDetailDTO;
+import com.algoarena.dto.dsa.ApproachMetadataDTO;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.ApproachService;
 import jakarta.validation.Valid;
@@ -22,57 +23,70 @@ public class ApproachController {
     @Autowired
     private ApproachService approachService;
 
-    // ==================== APPROACH CRUD OPERATIONS ====================
-
     /**
-     * Get approach by ID (only if user owns it)
-     */
-    @GetMapping("/{id}")
-    public ResponseEntity<ApproachDTO> getApproachById(
-            @PathVariable String id,
-            Authentication authentication
-    ) {
-        User currentUser = (User) authentication.getPrincipal();
-        ApproachDTO approach = approachService.getApproachByIdAndUser(id, currentUser.getId());
-        
-        if (approach == null) {
-            return ResponseEntity.notFound().build();
-        }
-        
-        return ResponseEntity.ok(approach);
-    }
-
-    /**
-     * Get all approaches for a question by current user
+     * GET /api/approaches/question/{questionId}
+     * Get current user's approaches metadata for a question
+     * Returns: List of metadata (no full content)
      */
     @GetMapping("/question/{questionId}")
-    public ResponseEntity<List<ApproachDTO>> getApproachesByQuestion(
+    public ResponseEntity<List<ApproachMetadataDTO>> getMyApproachesForQuestion(
             @PathVariable String questionId,
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
-        List<ApproachDTO> approaches = approachService.getApproachesByQuestionAndUser(questionId, currentUser.getId());
+        List<ApproachMetadataDTO> approaches = approachService.getMyApproachesForQuestion(
+            currentUser.getId(), 
+            questionId
+        );
         return ResponseEntity.ok(approaches);
     }
 
     /**
-     * Create new approach for a question
+     * GET /api/approaches/question/{questionId}/{approachId}
+     * Get full content for a specific approach
+     */
+    @GetMapping("/question/{questionId}/{approachId}")
+    public ResponseEntity<ApproachDetailDTO> getMyApproachDetail(
+            @PathVariable String questionId,
+            @PathVariable String approachId,
+            Authentication authentication
+    ) {
+        try {
+            User currentUser = (User) authentication.getPrincipal();
+            ApproachDetailDTO approach = approachService.getMyApproachDetail(
+                currentUser.getId(), 
+                questionId, 
+                approachId
+            );
+            return ResponseEntity.ok(approach);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
+     * POST /api/approaches/question/{questionId}
+     * Create new approach for current user
      */
     @PostMapping("/question/{questionId}")
     public ResponseEntity<Map<String, Object>> createApproach(
             @PathVariable String questionId,
-            @Valid @RequestBody ApproachDTO approachDTO,
+            @Valid @RequestBody ApproachDetailDTO dto,
             Authentication authentication
     ) {
-        User currentUser = (User) authentication.getPrincipal();
-        
         try {
-            ApproachDTO createdApproach = approachService.createApproach(questionId, approachDTO, currentUser);
+            User currentUser = (User) authentication.getPrincipal();
+            ApproachDetailDTO created = approachService.createApproach(
+                currentUser.getId(), 
+                questionId, 
+                dto, 
+                currentUser
+            );
             
             Map<String, Object> response = Map.of(
                 "success", true,
-                "data", createdApproach,
-                "message", "Approach created successfully"
+                "message", "Approach created successfully",
+                "data", created
             );
             
             return ResponseEntity.status(201).body(response);
@@ -81,35 +95,34 @@ public class ApproachController {
                 "success", false,
                 "error", e.getMessage()
             );
-            
             return ResponseEntity.badRequest().body(response);
         }
     }
 
     /**
-     * Update approach (only if user owns it)
+     * PUT /api/approaches/question/{questionId}/{approachId}
+     * Update current user's approach
      */
-    @PutMapping("/{id}")
+    @PutMapping("/question/{questionId}/{approachId}")
     public ResponseEntity<Map<String, Object>> updateApproach(
-            @PathVariable String id,
-            @Valid @RequestBody ApproachDTO approachDTO,
+            @PathVariable String questionId,
+            @PathVariable String approachId,
+            @Valid @RequestBody ApproachDetailDTO dto,
             Authentication authentication
     ) {
-        User currentUser = (User) authentication.getPrincipal();
-        
-        // Check if user owns this approach
-        ApproachDTO existingApproach = approachService.getApproachByIdAndUser(id, currentUser.getId());
-        if (existingApproach == null) {
-            return ResponseEntity.notFound().build();
-        }
-        
         try {
-            ApproachDTO updatedApproach = approachService.updateApproach(id, approachDTO);
+            User currentUser = (User) authentication.getPrincipal();
+            ApproachDetailDTO updated = approachService.updateApproach(
+                currentUser.getId(), 
+                questionId, 
+                approachId, 
+                dto
+            );
             
             Map<String, Object> response = Map.of(
                 "success", true,
-                "data", updatedApproach,
-                "message", "Approach updated successfully"
+                "message", "Approach updated successfully",
+                "data", updated
             );
             
             return ResponseEntity.ok(response);
@@ -118,29 +131,23 @@ public class ApproachController {
                 "success", false,
                 "error", e.getMessage()
             );
-            
             return ResponseEntity.badRequest().body(response);
         }
     }
 
     /**
-     * Delete approach (only if user owns it)
+     * DELETE /api/approaches/question/{questionId}/{approachId}
+     * Delete current user's approach
      */
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/question/{questionId}/{approachId}")
     public ResponseEntity<Map<String, Object>> deleteApproach(
-            @PathVariable String id,
+            @PathVariable String questionId,
+            @PathVariable String approachId,
             Authentication authentication
     ) {
-        User currentUser = (User) authentication.getPrincipal();
-        
-        // Check if user owns this approach
-        ApproachDTO existingApproach = approachService.getApproachByIdAndUser(id, currentUser.getId());
-        if (existingApproach == null) {
-            return ResponseEntity.notFound().build();
-        }
-        
         try {
-            approachService.deleteApproach(id);
+            User currentUser = (User) authentication.getPrincipal();
+            approachService.deleteApproach(currentUser.getId(), questionId, approachId);
             
             Map<String, Object> response = Map.of(
                 "success", true,
@@ -153,160 +160,38 @@ public class ApproachController {
                 "success", false,
                 "error", e.getMessage()
             );
-            
-            return ResponseEntity.status(500).body(response);
+            return ResponseEntity.badRequest().body(response);
         }
     }
 
-    // ==================== USER APPROACH STATISTICS ====================
-
     /**
+     * GET /api/approaches/my-approaches
      * Get all approaches by current user
      */
     @GetMapping("/my-approaches")
-    public ResponseEntity<List<ApproachDTO>> getMyApproaches(Authentication authentication) {
+    public ResponseEntity<List<ApproachMetadataDTO>> getMyAllApproaches(
+            Authentication authentication
+    ) {
         User currentUser = (User) authentication.getPrincipal();
-        List<ApproachDTO> approaches = approachService.getApproachesByUser(currentUser.getId());
+        List<ApproachMetadataDTO> approaches = approachService.getMyAllApproaches(currentUser.getId());
         return ResponseEntity.ok(approaches);
     }
 
     /**
-     * Get recent approaches by current user
+     * GET /api/approaches/question/{questionId}/usage
+     * Get usage stats for current user on a question
+     * Shows remaining space and slots
      */
-    @GetMapping("/my-approaches/recent")
-    public ResponseEntity<List<ApproachDTO>> getMyRecentApproaches(Authentication authentication) {
-        User currentUser = (User) authentication.getPrincipal();
-        List<ApproachDTO> approaches = approachService.getRecentApproachesByUser(currentUser.getId());
-        return ResponseEntity.ok(approaches);
-    }
-
-    /**
-     * Get approach statistics for current user
-     */
-    @GetMapping("/my-stats")
-    public ResponseEntity<Map<String, Object>> getMyApproachStats(Authentication authentication) {
-        User currentUser = (User) authentication.getPrincipal();
-        Map<String, Object> stats = approachService.getUserApproachStats(currentUser.getId());
-        return ResponseEntity.ok(stats);
-    }
-
-    /**
-     * Get size usage for current user on a specific question
-     */
-    @GetMapping("/question/{questionId}/size-usage")
-    public ResponseEntity<Map<String, Object>> getQuestionSizeUsage(
+    @GetMapping("/question/{questionId}/usage")
+    public ResponseEntity<Map<String, Object>> getMyQuestionUsage(
             @PathVariable String questionId,
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
-        Map<String, Object> usage = approachService.getUserQuestionSizeUsage(currentUser.getId(), questionId);
+        Map<String, Object> usage = approachService.getMyQuestionUsage(
+            currentUser.getId(), 
+            questionId
+        );
         return ResponseEntity.ok(usage);
-    }
-
-    /**
-     * UPDATED: Check both count and size limits before creating/updating approach
-     */
-    @PostMapping("/question/{questionId}/check-limits")
-    public ResponseEntity<Map<String, Object>> checkApproachLimits(
-            @PathVariable String questionId,
-            @RequestBody Map<String, String> content,
-            @RequestParam(required = false) String excludeApproachId,
-            Authentication authentication
-    ) {
-        User currentUser = (User) authentication.getPrincipal();
-        
-        String textContent = content.get("textContent");
-        String codeContent = content.get("codeContent");
-        
-        Map<String, Object> limits = approachService.checkApproachLimits(
-            currentUser.getId(), 
-            questionId, 
-            textContent, 
-            codeContent, 
-            excludeApproachId
-        );
-        
-        return ResponseEntity.ok(limits);
-    }
-
-    /**
-     * DEPRECATED: Use check-limits instead (kept for backward compatibility)
-     */
-    @PostMapping("/question/{questionId}/check-size")
-    public ResponseEntity<Map<String, Object>> checkSizeLimits(
-            @PathVariable String questionId,
-            @RequestBody Map<String, String> content,
-            @RequestParam(required = false) String excludeApproachId,
-            Authentication authentication
-    ) {
-        User currentUser = (User) authentication.getPrincipal();
-        
-        String textContent = content.get("textContent");
-        String codeContent = content.get("codeContent");
-        
-        Map<String, Object> limits = approachService.checkSizeLimits(
-            currentUser.getId(), 
-            questionId, 
-            textContent, 
-            codeContent, 
-            excludeApproachId
-        );
-        
-        return ResponseEntity.ok(limits);
-    }
-
-    // ==================== ADMIN ENDPOINTS ====================
-
-    /**
-     * Delete all approaches by user for a specific question (Admin only)
-     */
-    @DeleteMapping("/question/{questionId}/user/{userId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> deleteUserApproachesForQuestion(
-            @PathVariable String questionId,
-            @PathVariable String userId
-    ) {
-        try {
-            approachService.deleteAllApproachesByUserForQuestion(userId, questionId);
-            
-            Map<String, Object> response = Map.of(
-                "success", true,
-                "message", "All user approaches for question deleted successfully"
-            );
-            
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            Map<String, Object> response = Map.of(
-                "success", false,
-                "error", e.getMessage()
-            );
-            
-            return ResponseEntity.status(500).body(response);
-        }
-    }
-
-    /**
-     * Delete all approaches for a question (Admin only - used when deleting question)
-     */
-    @DeleteMapping("/question/{questionId}/all")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> deleteAllApproachesForQuestion(@PathVariable String questionId) {
-        try {
-            approachService.deleteAllApproachesForQuestion(questionId);
-            
-            Map<String, Object> response = Map.of(
-                "success", true,
-                "message", "All approaches for question deleted successfully"
-            );
-            
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            Map<String, Object> response = Map.of(
-                "success", false,
-                "error", e.getMessage()
-            );
-            
-            return ResponseEntity.status(500).body(response);
-        }
     }
 }

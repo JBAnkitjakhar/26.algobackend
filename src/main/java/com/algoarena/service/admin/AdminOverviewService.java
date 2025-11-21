@@ -4,6 +4,7 @@ package com.algoarena.service.admin;
 import com.algoarena.dto.admin.AdminOverviewDTO;
 import com.algoarena.dto.admin.LoggedInUserDTO;
 import com.algoarena.model.User;
+import com.algoarena.model.UserApproaches;
 import com.algoarena.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,6 +12,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+import com.algoarena.repository.UserApproachesRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,11 +39,11 @@ public class AdminOverviewService {
     private SolutionRepository solutionRepository;
 
     @Autowired
-    private ApproachRepository approachRepository;
+    private UserApproachesRepository userApproachesRepository;
 
     @Autowired
     private MongoTemplate mongoTemplate;
-    
+
     @Value("${spring.application.version:1.0.0}")
     private String appVersion;
 
@@ -56,10 +58,10 @@ public class AdminOverviewService {
         LocalDateTime todayStart = LocalDate.now().atStartOfDay();
         LocalDateTime todayEnd = LocalDate.now().atTime(LocalTime.MAX);
         LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-        
+
         // Get users who logged in today
         List<LoggedInUserDTO> loggedInUsers = getUsersLoggedInTodayDetails(todayStart, todayEnd);
-        
+
         // Build overview DTO using builder pattern
         AdminOverviewDTO overview = new AdminOverviewDTO.Builder()
                 .totalUsers(getUserCount())
@@ -74,45 +76,49 @@ public class AdminOverviewService {
                 .newUsersLast7Days(getNewUsersSince(sevenDaysAgo))
                 .systemHealth(checkSystemHealth())
                 .build();
-        
+
         return overview;
     }
-    
+
     /**
      * Get total user count
      */
     private long getUserCount() {
         return userRepository.count();
     }
-    
+
     /**
      * Get total category count
      */
     private long getCategoryCount() {
         return categoryRepository.count();
     }
-    
+
     /**
      * Get total question count
      */
     private long getQuestionCount() {
         return questionRepository.count();
     }
-    
+
     /**
      * Get total solution count
      */
     private long getSolutionCount() {
         return solutionRepository.count();
     }
-    
+
     /**
      * Get total user approach count
      */
     private long getUserApproachCount() {
-        return approachRepository.count();
+        // OLD: return approachRepository.count();
+        // NEW: Count total approaches across all users
+        return userApproachesRepository.findAll().stream()
+                .mapToLong(UserApproaches::getTotalApproaches)
+                .sum();
     }
-    
+
     /**
      * Get details of users who logged in today
      */
@@ -120,20 +126,19 @@ public class AdminOverviewService {
         Query query = new Query(Criteria.where("lastLogin")
                 .gte(todayStart)
                 .lte(todayEnd));
-        
+
         List<User> users = mongoTemplate.find(query, User.class);
-        
+
         return users.stream()
                 .map(user -> new LoggedInUserDTO(
                         user.getId(),
                         user.getName(),
                         user.getEmail(),
                         user.getGithubUsername(),
-                        user.getImage()
-                ))
+                        user.getImage()))
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Get count of questions created in the last N days
      */
@@ -141,7 +146,7 @@ public class AdminOverviewService {
         Query query = new Query(Criteria.where("createdAt").gte(since));
         return mongoTemplate.count(query, "questions");
     }
-    
+
     /**
      * Get count of solutions created in the last N days
      */
@@ -149,7 +154,7 @@ public class AdminOverviewService {
         Query query = new Query(Criteria.where("createdAt").gte(since));
         return mongoTemplate.count(query, "solutions");
     }
-    
+
     /**
      * Get count of new users in the last N days
      */
@@ -157,13 +162,13 @@ public class AdminOverviewService {
         Query query = new Query(Criteria.where("createdAt").gte(since));
         return mongoTemplate.count(query, "users");
     }
-    
+
     /**
      * Check system health status
      */
     private AdminOverviewDTO.SystemHealthStatus checkSystemHealth() {
         AdminOverviewDTO.SystemHealthStatus health = new AdminOverviewDTO.SystemHealthStatus();
-        
+
         try {
             // Check database connectivity by attempting a simple query
             mongoTemplate.count(new Query(), "users");
@@ -173,9 +178,9 @@ public class AdminOverviewService {
             health.setDatabaseConnected(false);
             health.setDatabaseStatus("Error: " + e.getMessage());
         }
-        
+
         health.setAppVersion(appVersion);
-        
+
         return health;
     }
 }

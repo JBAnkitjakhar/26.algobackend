@@ -1,19 +1,20 @@
-// src/main/java/com/algoarena/dto/dsa/ApproachDTO.java
+// src/main/java/com/algoarena/dto/dsa/ApproachDetailDTO.java
 package com.algoarena.dto.dsa;
 
-import com.algoarena.model.Approach;
+import com.algoarena.model.UserApproaches.ApproachData;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-
 import java.time.LocalDateTime;
 
-public class ApproachDTO {
+/**
+ * Full DTO with all content (textContent + codeContent)
+ * Used when viewing a single approach or creating/updating
+ */
+public class ApproachDetailDTO {
 
     private String id;
-
     private String questionId;
     private String questionTitle;
-
     private String userId;
     private String userName;
 
@@ -27,42 +28,27 @@ public class ApproachDTO {
     private String codeLanguage;
 
     private int contentSize;
+    private double contentSizeKB;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     // Constructors
-    public ApproachDTO() {}
+    public ApproachDetailDTO() {}
 
-    public ApproachDTO(Approach approach) {
-        this.id = approach.getId();
-        this.questionId = approach.getQuestion() != null ? approach.getQuestion().getId() : null;
-        this.questionTitle = approach.getQuestion() != null ? approach.getQuestion().getTitle() : null;
-        this.userId = approach.getUser() != null ? approach.getUser().getId() : null;
-        this.userName = approach.getUser() != null ? approach.getUser().getName() : null;
-        this.textContent = approach.getTextContent();
-        this.codeContent = approach.getCodeContent();
-        this.codeLanguage = approach.getCodeLanguage();
-        this.contentSize = approach.getContentSize();
-        this.createdAt = approach.getCreatedAt();
-        this.updatedAt = approach.getUpdatedAt();
-    }
-
-    // Static factory method
-    public static ApproachDTO fromEntity(Approach approach) {
-        return new ApproachDTO(approach);
-    }
-
-    // Helper method to calculate content size (for validation)
-    public int calculateContentSize() {
-        int size = 0;
-        if (textContent != null) {
-            size += textContent.getBytes().length;
-        }
-        if (codeContent != null) {
-            size += codeContent.getBytes().length;
-        }
-        return size;
+    public ApproachDetailDTO(ApproachData data, String userId, String userName) {
+        this.id = data.getId();
+        this.questionId = data.getQuestionId();
+        this.questionTitle = data.getQuestionTitle();
+        this.userId = userId;
+        this.userName = userName;
+        this.textContent = data.getTextContent();
+        this.codeContent = data.getCodeContent();
+        this.codeLanguage = data.getCodeLanguage();
+        this.contentSize = data.getContentSize();
+        this.contentSizeKB = data.getContentSize() / 1024.0;
+        this.createdAt = data.getCreatedAt();
+        this.updatedAt = data.getUpdatedAt();
     }
 
     // Getters and Setters
@@ -112,7 +98,6 @@ public class ApproachDTO {
 
     public void setTextContent(String textContent) {
         this.textContent = textContent;
-        this.contentSize = calculateContentSize(); // Recalculate size
     }
 
     public String getCodeContent() {
@@ -121,7 +106,6 @@ public class ApproachDTO {
 
     public void setCodeContent(String codeContent) {
         this.codeContent = codeContent;
-        this.contentSize = calculateContentSize(); // Recalculate size
     }
 
     public String getCodeLanguage() {
@@ -140,6 +124,14 @@ public class ApproachDTO {
         this.contentSize = contentSize;
     }
 
+    public double getContentSizeKB() {
+        return contentSizeKB;
+    }
+
+    public void setContentSizeKB(double contentSizeKB) {
+        this.contentSizeKB = contentSizeKB;
+    }
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -156,3 +148,24 @@ public class ApproachDTO {
         this.updatedAt = updatedAt;
     }
 }
+// ```
+
+// ---
+
+// ## 📁 **FILE STRUCTURE:**
+// ```
+// src/main/java/com/algoarena/
+// ├── dto/
+// │   └── dsa/
+// │       ├── ApproachMetadataDTO.java  ← Lightweight (no content)
+// │       └── ApproachDetailDTO.java    ← Full content
+// ├── model/
+// │   └── UserApproaches.java           ← Already provided
+// ├── repository/
+// │   └── UserApproachesRepository.java ← Already provided
+// ├── service/
+// │   └── dsa/
+// │       └── ApproachService.java      ← Already provided
+// └── controller/
+//     └── dsa/
+//         └── ApproachController.java   ← Already provided

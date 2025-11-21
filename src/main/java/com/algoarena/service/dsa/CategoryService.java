@@ -2,7 +2,7 @@
 package com.algoarena.service.dsa;
 
 import com.algoarena.dto.dsa.CategoryDTO;
-import com.algoarena.dto.user.GlobalCategoryInfoDTO;  // ← ADD THIS IMPORT
+import com.algoarena.dto.user.GlobalCategoryInfoDTO; // ← ADD THIS IMPORT
 import com.algoarena.model.Category;
 import com.algoarena.model.Question;
 import com.algoarena.model.QuestionLevel;
@@ -10,7 +10,6 @@ import com.algoarena.model.User;
 import com.algoarena.repository.CategoryRepository;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.repository.SolutionRepository;
-import com.algoarena.repository.ApproachRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
@@ -34,34 +33,34 @@ public class CategoryService {
     private SolutionRepository solutionRepository;
 
     @Autowired
-    private ApproachRepository approachRepository;
+    private UserProgressService userProgressService;
 
     @Autowired
-    private UserProgressService userProgressService;
+    private ApproachService approachService;
 
     /**
      * GET /api/categories
      * Returns Map<String, CategoryDTO> with category name as key
      * Response format:
      * {
-     *   "Arrays": { id, name, displayOrder, questionIds by level, counts, ... },
-     *   "HashMap": { ... },
-     *   ...
+     * "Arrays": { id, name, displayOrder, questionIds by level, counts, ... },
+     * "HashMap": { ... },
+     * ...
      * }
      */
     @Cacheable(value = "adminCategories")
     public Map<String, CategoryDTO> getAllCategories() {
         System.out.println("CACHE MISS: Fetching all categories from database");
-        
+
         List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscNameAsc();
-        
+
         Map<String, CategoryDTO> categoryMap = new LinkedHashMap<>();
-        
+
         for (Category category : categories) {
             CategoryDTO dto = CategoryDTO.fromEntity(category);
             categoryMap.put(category.getName(), dto);
         }
-        
+
         return categoryMap;
     }
 
@@ -84,33 +83,33 @@ public class CategoryService {
     @Cacheable(value = "globalCategories")
     public GlobalCategoryInfoDTO getGlobalCategoriesInfo() {
         System.out.println("CACHE MISS: Fetching global categories info from database");
-        
+
         List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscNameAsc();
         Map<String, GlobalCategoryInfoDTO.CategoryInfo> categoryInfoMap = new HashMap<>();
-        
+
         for (Category category : categories) {
             GlobalCategoryInfoDTO.CategoryInfo info = new GlobalCategoryInfoDTO.CategoryInfo();
             info.setId(category.getId());
             info.setName(category.getName());
-            
+
             // Use data directly from category model - NO EXTRA QUERIES!
             info.setEasyQuestionIds(new ArrayList<>(category.getEasyQuestionIds()));
             info.setMediumQuestionIds(new ArrayList<>(category.getMediumQuestionIds()));
             info.setHardQuestionIds(new ArrayList<>(category.getHardQuestionIds()));
-            
+
             info.setEasyCount(category.getEasyCount());
             info.setMediumCount(category.getMediumCount());
             info.setHardCount(category.getHardCount());
             info.setTotalQuestions(category.getTotalQuestions());
-            
+
             categoryInfoMap.put(category.getId(), info);
         }
-        
+
         GlobalCategoryInfoDTO result = new GlobalCategoryInfoDTO();
         result.setCategories(categoryInfoMap);
-        
+
         System.out.println("✓ Loaded " + categories.size() + " categories in ONE query!");
-        
+
         return result;
     }
 
@@ -124,28 +123,28 @@ public class CategoryService {
         if (categoryRepository.existsByNameIgnoreCase(categoryDTO.getName())) {
             throw new RuntimeException("Category with name '" + categoryDTO.getName() + "' already exists");
         }
-        
+
         Category category = new Category();
         category.setName(categoryDTO.getName().trim());
         category.setCreatedBy(createdBy);
-        
+
         // Auto-assign displayOrder (highest + 1)
         Integer maxOrder = categoryRepository.findTopByOrderByDisplayOrderDesc()
                 .map(Category::getDisplayOrder)
                 .orElse(0);
         category.setDisplayOrder(maxOrder + 1);
-        
+
         // Initialize empty lists (already done in constructor, but explicit)
         category.setEasyQuestionIds(new ArrayList<>());
         category.setMediumQuestionIds(new ArrayList<>());
         category.setHardQuestionIds(new ArrayList<>());
         category.recalculateCounts();
-        
+
         Category savedCategory = categoryRepository.save(category);
-        
-        System.out.println("✓ Created category: " + savedCategory.getName() + 
-                         " (displayOrder: " + savedCategory.getDisplayOrder() + ")");
-        
+
+        System.out.println("✓ Created category: " + savedCategory.getName() +
+                " (displayOrder: " + savedCategory.getDisplayOrder() + ")");
+
         return CategoryDTO.fromEntity(savedCategory);
     }
 
@@ -166,14 +165,14 @@ public class CategoryService {
             }
             category.setName(categoryDTO.getName().trim());
         }
-        
+
         // Update displayOrder if provided
         if (categoryDTO.getDisplayOrder() != null) {
             category.setDisplayOrder(categoryDTO.getDisplayOrder());
         }
 
         Category updatedCategory = categoryRepository.save(category);
-        
+
         System.out.println("✓ Updated category: " + updatedCategory.getName());
 
         return CategoryDTO.fromEntity(updatedCategory);
@@ -183,13 +182,13 @@ public class CategoryService {
      * DELETE /api/categories/{id}
      * Delete category and all its questions (cascade)
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoriesProgress", 
-                          "questionsMetadata", "userProgressMap", "userMeStats" }, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoriesProgress",
+            "questionsMetadata", "userProgressMap", "userMeStats" }, allEntries = true)
     @Transactional
     public Map<String, Object> deleteCategory(String id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
-        
+
         // Get all questions in this category
         List<Question> questions = questionRepository.findByCategory_Id(id);
         int deletedQuestionsCount = questions.size();
@@ -202,9 +201,11 @@ public class CategoryService {
             // Delete solutions for all questions
             for (String questionId : questionIds) {
                 solutionRepository.deleteByQuestion_Id(questionId);
-                approachRepository.deleteByQuestion_Id(questionId);
+                // OLD: approachRepository.deleteByQuestion_Id(questionId);
+                // NEW: Use ApproachService to delete from UserApproaches documents
+                approachService.deleteAllApproachesForQuestion(questionId);
             }
-            
+
             // Remove questions from user progress
             int removedFromUsers = userProgressService.removeQuestionsFromAllUsers(questionIds);
             System.out.println("✓ Removed " + removedFromUsers + " question entries from users' progress");
@@ -216,15 +217,15 @@ public class CategoryService {
         // Delete category
         categoryRepository.deleteById(id);
 
-        System.out.println("✓ Deleted category '" + category.getName() + "' and " + 
-                         deletedQuestionsCount + " questions");
+        System.out.println("✓ Deleted category '" + category.getName() + "' and " +
+                deletedQuestionsCount + " questions");
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
         result.put("message", "Category deleted successfully");
         result.put("categoryName", category.getName());
         result.put("deletedQuestions", deletedQuestionsCount);
-        
+
         return result;
     }
 
@@ -236,10 +237,10 @@ public class CategoryService {
     public void addQuestionToCategory(String categoryId, String questionId, QuestionLevel level) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
-        
+
         category.addQuestionId(questionId, level);
         categoryRepository.save(category);
-        
+
         System.out.println("✓ Added question to category '" + category.getName() + "' (" + level + ")");
     }
 
@@ -251,10 +252,10 @@ public class CategoryService {
     public void removeQuestionFromCategory(String categoryId, String questionId, QuestionLevel level) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
-        
+
         category.removeQuestionId(questionId, level);
         categoryRepository.save(category);
-        
+
         System.out.println("✓ Removed question from category '" + category.getName() + "' (" + level + ")");
     }
 
@@ -263,8 +264,8 @@ public class CategoryService {
      * Called from QuestionService when updating question category/level
      */
     @CacheEvict(value = { "adminCategories", "globalCategories" }, allEntries = true)
-    public void moveQuestion(String oldCategoryId, String newCategoryId, 
-                            String questionId, QuestionLevel oldLevel, QuestionLevel newLevel) {
+    public void moveQuestion(String oldCategoryId, String newCategoryId,
+            String questionId, QuestionLevel oldLevel, QuestionLevel newLevel) {
         // Remove from old category
         if (oldCategoryId != null && !oldCategoryId.equals(newCategoryId)) {
             Category oldCategory = categoryRepository.findById(oldCategoryId).orElse(null);
@@ -281,7 +282,7 @@ public class CategoryService {
                 categoryRepository.save(category);
             }
         }
-        
+
         // Add to new category
         if (newCategoryId != null) {
             Category newCategory = categoryRepository.findById(newCategoryId)
@@ -299,12 +300,12 @@ public class CategoryService {
     public CategoryDTO updateCategoryDisplayOrder(String id, Integer newOrder) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
-        
+
         category.setDisplayOrder(newOrder);
         Category updated = categoryRepository.save(category);
-        
+
         System.out.println("✓ Updated displayOrder for '" + category.getName() + "' to " + newOrder);
-        
+
         return CategoryDTO.fromEntity(updated);
     }
 
@@ -314,20 +315,20 @@ public class CategoryService {
     @CacheEvict(value = { "adminCategories", "globalCategories" }, allEntries = true)
     public List<CategoryDTO> batchUpdateDisplayOrder(Map<String, Integer> orderMap) {
         List<Category> updatedCategories = new ArrayList<>();
-        
+
         for (Map.Entry<String, Integer> entry : orderMap.entrySet()) {
             String categoryId = entry.getKey();
             Integer newOrder = entry.getValue();
-            
+
             Category category = categoryRepository.findById(categoryId).orElse(null);
             if (category != null) {
                 category.setDisplayOrder(newOrder);
                 updatedCategories.add(categoryRepository.save(category));
             }
         }
-        
+
         System.out.println("✓ Batch updated displayOrder for " + updatedCategories.size() + " categories");
-        
+
         return updatedCategories.stream()
                 .map(CategoryDTO::fromEntity)
                 .collect(Collectors.toList());
@@ -346,4 +347,3 @@ public class CategoryService {
         return categoryRepository.countAllCategories();
     }
 }
- 

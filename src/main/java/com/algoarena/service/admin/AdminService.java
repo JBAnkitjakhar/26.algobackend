@@ -5,11 +5,13 @@ package com.algoarena.service.admin;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.repository.UserRepository;
 import com.algoarena.repository.SolutionRepository;
-import com.algoarena.repository.ApproachRepository;
+import com.algoarena.repository.UserApproachesRepository;
+import com.algoarena.model.UserApproaches;
 import com.algoarena.repository.CategoryRepository;
 import com.algoarena.repository.UserProgressRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
 
 import java.util.HashMap;
 import java.util.Map;
@@ -27,7 +29,7 @@ public class AdminService {
     private SolutionRepository solutionRepository;
 
     @Autowired
-    private ApproachRepository approachRepository;
+    private UserApproachesRepository userApproachesRepository;
 
     @Autowired
     private CategoryRepository categoryRepository;
@@ -35,24 +37,26 @@ public class AdminService {
     @Autowired
     private UserProgressRepository userProgressRepository;
 
-    /**
-     * Get admin Home statistics
-     */
     public Map<String, Object> getAdminHomeStats() {
-        Map<String, Object> stats = new HashMap<>();
+    Map<String, Object> stats = new HashMap<>();
 
-        // Basic counts
-        long totalUsers = userRepository.count();
-        long totalQuestions = questionRepository.count();
-        long totalSolutions = solutionRepository.count();
-        long totalApproaches = approachRepository.count();
-        long totalCategories = categoryRepository.count();
+    // Basic counts
+    long totalUsers = userRepository.count();
+    long totalQuestions = questionRepository.count();
+    long totalSolutions = solutionRepository.count();
+    
+    // NEW: Count total approaches across all users
+    long totalApproaches = userApproachesRepository.findAll().stream()
+        .mapToLong(UserApproaches::getTotalApproaches)
+        .sum();
+    
+    long totalCategories = categoryRepository.count();
 
-        stats.put("totalUsers", totalUsers);
-        stats.put("totalQuestions", totalQuestions);
-        stats.put("totalSolutions", totalSolutions);
-        stats.put("totalApproaches", totalApproaches);
-        stats.put("totalCategories", totalCategories);
+    stats.put("totalUsers", totalUsers);
+    stats.put("totalQuestions", totalQuestions);
+    stats.put("totalSolutions", totalSolutions);
+    stats.put("totalApproaches", totalApproaches);
+    stats.put("totalCategories", totalCategories);
 
         // Progress statistics
         long totalProgress = userProgressRepository.count();
@@ -164,18 +168,23 @@ public class AdminService {
     }
 
     /**
-     * Get application metrics for monitoring
-     */
-    public Map<String, Object> getApplicationMetrics() {
-        Map<String, Object> metrics = new HashMap<>();
+ * Get application metrics for monitoring
+ */
+public Map<String, Object> getApplicationMetrics() {
+    Map<String, Object> metrics = new HashMap<>();
 
-        // Database metrics
-        Map<String, Object> dbMetrics = new HashMap<>();
-        dbMetrics.put("totalUsers", userRepository.count());
-        dbMetrics.put("totalQuestions", questionRepository.count());
-        dbMetrics.put("totalSolutions", solutionRepository.count());
-        dbMetrics.put("totalApproaches", approachRepository.count());
-        dbMetrics.put("totalCategories", categoryRepository.count());
+    // Database metrics
+    Map<String, Object> dbMetrics = new HashMap<>();
+    dbMetrics.put("totalUsers", userRepository.count());
+    dbMetrics.put("totalQuestions", questionRepository.count());
+    dbMetrics.put("totalSolutions", solutionRepository.count());
+    
+    // NEW: Count total approaches
+    dbMetrics.put("totalApproaches", userApproachesRepository.findAll().stream()
+        .mapToLong(UserApproaches::getTotalApproaches)
+        .sum());
+    
+    dbMetrics.put("totalCategories", categoryRepository.count());
 
         // Performance metrics (placeholder)
         Map<String, Object> perfMetrics = new HashMap<>();

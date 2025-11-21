@@ -18,7 +18,6 @@ import com.algoarena.model.Category;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.repository.CategoryRepository;
 import com.algoarena.repository.SolutionRepository;
-import com.algoarena.repository.ApproachRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.CacheEvict;
@@ -41,13 +40,13 @@ public class QuestionService {
     private SolutionRepository solutionRepository;
 
     @Autowired
-    private ApproachRepository approachRepository;
-
-    @Autowired
     private UserProgressService userProgressService;
 
     @Autowired
-    private CategoryService categoryService; // NEW: Inject CategoryService
+    private CategoryService categoryService;
+
+    @Autowired
+    private ApproachService approachService;
 
     @Cacheable(value = "questionsList", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize + '_cat_' + (#categoryId ?: 'all') + '_lvl_' + (#level ?: 'all') + '_search_' + (#search ?: 'none')")
     public Page<Question> getAllQuestionsFiltered(Pageable pageable, String categoryId, String level, String search) {
@@ -246,7 +245,9 @@ public class QuestionService {
 
         // STEP 2: Delete related data
         solutionRepository.deleteByQuestion_Id(id);
-        approachRepository.deleteByQuestion_Id(id);
+        // OLD: approachRepository.deleteByQuestion_Id(id);
+        // NEW: Use ApproachService to delete from UserApproaches documents
+        approachService.deleteAllApproachesForQuestion(id);
 
         int removedFromUsers = userProgressService.removeQuestionFromAllUsers(id);
         System.out.println("✓ Removed question from " + removedFromUsers + " users' progress");
