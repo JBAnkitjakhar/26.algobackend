@@ -32,28 +32,50 @@ public class SolutionService {
     @Autowired
     private VisualizerService visualizerService;
 
-    // Get solution by ID
+    /**
+     * Get solution by ID - CACHED
+     * Cache key: solution ID
+     * Returns complete solution details including content, code, links, visualizers
+     */
+    @Cacheable(value = "solutionDetail", key = "#id")
     public SolutionDTO getSolutionById(String id) {
+        System.out.println("CACHE MISS: Fetching solution from database - ID: " + id);
         Solution solution = solutionRepository.findById(id).orElse(null);
         return solution != null ? SolutionDTO.fromEntity(solution) : null;
     }
 
-    // Get all solutions with pagination (Admin only)
+    /**
+     * Get all solutions with pagination (Admin only)
+     * NOT CACHED - Used only in admin panel with various filters
+     */
     public Page<SolutionDTO> getAllSolutions(Pageable pageable) {
         Page<Solution> solutions = solutionRepository.findAllByOrderByCreatedAtDesc(pageable);
         return solutions.map(SolutionDTO::fromEntity);
     }
 
-    // Get solutions by question
+    /**
+     * Get solutions by question - CACHED
+     * Cache key: question ID
+     * Returns list of all solutions for a specific question
+     */
+    @Cacheable(value = "questionSolutions", key = "#questionId")
     public List<SolutionDTO> getSolutionsByQuestion(String questionId) {
+        System.out.println("CACHE MISS: Fetching solutions for question - ID: " + questionId);
         List<Solution> solutions = solutionRepository.findByQuestion_IdOrderByCreatedAtAsc(questionId);
         return solutions.stream()
                 .map(SolutionDTO::fromEntity)
                 .toList();
     }
 
-    // Create new solution for a question
-    @CacheEvict(value = "adminSolutionsSummary", allEntries = true)
+    /**
+     * Create new solution for a question
+     * CLEARS ALL SOLUTION CACHES
+     */
+    @CacheEvict(value = {
+        "adminSolutionsSummary",  // Admin summary pages
+        "solutionDetail",          // Individual solution details
+        "questionSolutions"        // Solutions by question
+    }, allEntries = true)
     public SolutionDTO createSolution(String questionId, SolutionDTO solutionDTO, User createdBy) {
         // Find the question
         Question question = questionRepository.findById(questionId)
@@ -82,11 +104,22 @@ public class SolutionService {
         }
 
         Solution savedSolution = solutionRepository.save(solution);
+        
+        System.out.println("✓ Created solution for question: " + question.getTitle());
+        System.out.println("✓ Cleared caches: adminSolutionsSummary, solutionDetail, questionSolutions");
+        
         return SolutionDTO.fromEntity(savedSolution);
     }
 
-    // Update solution
-    @CacheEvict(value = "adminSolutionsSummary", allEntries = true)
+    /**
+     * Update solution
+     * CLEARS ALL SOLUTION CACHES
+     */
+    @CacheEvict(value = {
+        "adminSolutionsSummary",  // Admin summary pages
+        "solutionDetail",          // Individual solution details
+        "questionSolutions"        // Solutions by question
+    }, allEntries = true)
     public SolutionDTO updateSolution(String id, SolutionDTO solutionDTO) {
         Solution solution = solutionRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Solution not found"));
@@ -113,11 +146,22 @@ public class SolutionService {
         }
 
         Solution updatedSolution = solutionRepository.save(solution);
+        
+        System.out.println("✓ Updated solution: " + id);
+        System.out.println("✓ Cleared caches: adminSolutionsSummary, solutionDetail, questionSolutions");
+        
         return SolutionDTO.fromEntity(updatedSolution);
     }
 
-    // Delete solution
-    @CacheEvict(value = "adminSolutionsSummary", allEntries = true)
+    /**
+     * Delete solution
+     * CLEARS ALL SOLUTION CACHES
+     */
+    @CacheEvict(value = {
+        "adminSolutionsSummary",  // Admin summary pages
+        "solutionDetail",          // Individual solution details
+        "questionSolutions"        // Solutions by question
+    }, allEntries = true)
     public void deleteSolution(String id) {
         if (!solutionRepository.existsById(id)) {
             throw new RuntimeException("Solution not found");
@@ -133,7 +177,9 @@ public class SolutionService {
 
         // STEP 2: Delete the solution document
         solutionRepository.deleteById(id);
-        // System.out.println("Successfully deleted solution: " + id);
+        
+        System.out.println("✓ Deleted solution: " + id);
+        System.out.println("✓ Cleared caches: adminSolutionsSummary, solutionDetail, questionSolutions");
     }
 
     // Check if solution exists
@@ -176,7 +222,15 @@ public class SolutionService {
                 .toList();
     }
 
-    // Add image to solution
+    /**
+     * Add image to solution
+     * CLEARS ALL SOLUTION CACHES - Image count affects summary
+     */
+    @CacheEvict(value = {
+        "adminSolutionsSummary",  // Summary shows imageCount
+        "solutionDetail",          // Detail includes imageUrls
+        "questionSolutions"        // Question solutions include images
+    }, allEntries = true)
     public SolutionDTO addImageToSolution(String solutionId, String imageUrl) {
         Solution solution = solutionRepository.findById(solutionId)
                 .orElseThrow(() -> new RuntimeException("Solution not found"));
@@ -195,10 +249,22 @@ public class SolutionService {
         }
 
         Solution updatedSolution = solutionRepository.save(solution);
+        
+        System.out.println("✓ Added image to solution: " + solutionId);
+        System.out.println("✓ Cleared caches: adminSolutionsSummary, solutionDetail, questionSolutions");
+        
         return SolutionDTO.fromEntity(updatedSolution);
     }
 
-    // Remove image from solution
+    /**
+     * Remove image from solution
+     * CLEARS ALL SOLUTION CACHES - Image count affects summary
+     */
+    @CacheEvict(value = {
+        "adminSolutionsSummary",  // Summary shows imageCount
+        "solutionDetail",          // Detail includes imageUrls
+        "questionSolutions"        // Question solutions include images
+    }, allEntries = true)
     public SolutionDTO removeImageFromSolution(String solutionId, String imageUrl) {
         Solution solution = solutionRepository.findById(solutionId)
                 .orElseThrow(() -> new RuntimeException("Solution not found"));
@@ -210,10 +276,22 @@ public class SolutionService {
         }
 
         Solution updatedSolution = solutionRepository.save(solution);
+        
+        System.out.println("✓ Removed image from solution: " + solutionId);
+        System.out.println("✓ Cleared caches: adminSolutionsSummary, solutionDetail, questionSolutions");
+        
         return SolutionDTO.fromEntity(updatedSolution);
     }
 
-    // Add visualizer to solution
+    /**
+     * Add visualizer to solution
+     * CLEARS ALL SOLUTION CACHES - Visualizer count affects summary
+     */
+    @CacheEvict(value = {
+        "adminSolutionsSummary",  // Summary shows visualizerCount
+        "solutionDetail",          // Detail includes visualizerFileIds
+        "questionSolutions"        // Question solutions include visualizers
+    }, allEntries = true)
     public SolutionDTO addVisualizerToSolution(String solutionId, String visualizerFileId) {
         Solution solution = solutionRepository.findById(solutionId)
                 .orElseThrow(() -> new RuntimeException("Solution not found"));
@@ -232,10 +310,22 @@ public class SolutionService {
         }
 
         Solution updatedSolution = solutionRepository.save(solution);
+        
+        System.out.println("✓ Added visualizer to solution: " + solutionId);
+        System.out.println("✓ Cleared caches: adminSolutionsSummary, solutionDetail, questionSolutions");
+        
         return SolutionDTO.fromEntity(updatedSolution);
     }
 
-    // Remove visualizer from solution
+    /**
+     * Remove visualizer from solution
+     * CLEARS ALL SOLUTION CACHES - Visualizer count affects summary
+     */
+    @CacheEvict(value = {
+        "adminSolutionsSummary",  // Summary shows visualizerCount
+        "solutionDetail",          // Detail includes visualizerFileIds
+        "questionSolutions"        // Question solutions include visualizers
+    }, allEntries = true)
     public SolutionDTO removeVisualizerFromSolution(String solutionId, String visualizerFileId) {
         Solution solution = solutionRepository.findById(solutionId)
                 .orElseThrow(() -> new RuntimeException("Solution not found"));
@@ -247,6 +337,10 @@ public class SolutionService {
         }
 
         Solution updatedSolution = solutionRepository.save(solution);
+        
+        System.out.println("✓ Removed visualizer from solution: " + solutionId);
+        System.out.println("✓ Cleared caches: adminSolutionsSummary, solutionDetail, questionSolutions");
+        
         return SolutionDTO.fromEntity(updatedSolution);
     }
 
@@ -304,7 +398,8 @@ public class SolutionService {
      */
     @Cacheable(value = "adminSolutionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
     public Page<AdminSolutionSummaryDTO> getAdminSolutionsSummary(Pageable pageable) {
-        System.out.println("CACHE MISS: Fetching admin solutions summary from database");
+        System.out.println("CACHE MISS: Fetching admin solutions summary from database - Page: " + 
+                          pageable.getPageNumber() + ", Size: " + pageable.getPageSize());
         
         Page<Solution> solutions = solutionRepository.findAllByOrderByCreatedAtDesc(pageable);
         
