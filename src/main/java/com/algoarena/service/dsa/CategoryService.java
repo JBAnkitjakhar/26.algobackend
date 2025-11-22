@@ -2,7 +2,7 @@
 package com.algoarena.service.dsa;
 
 import com.algoarena.dto.dsa.CategoryDTO;
-import com.algoarena.dto.user.GlobalCategoryInfoDTO; // ← ADD THIS IMPORT
+import com.algoarena.dto.user.GlobalCategoryInfoDTO;
 import com.algoarena.model.Category;
 import com.algoarena.model.Question;
 import com.algoarena.model.QuestionLevel;
@@ -41,11 +41,12 @@ public class CategoryService {
     /**
      * GET /api/categories
      * Returns Map<String, CategoryDTO> with category name as key
+     * GLOBAL DATA - Same for all users
      * Response format:
      * {
-     * "Arrays": { id, name, displayOrder, questionIds by level, counts, ... },
-     * "HashMap": { ... },
-     * ...
+     *   "Arrays": { id, name, displayOrder, questionIds by level, counts, ... },
+     *   "HashMap": { ... },
+     *   ...
      * }
      */
     @Cacheable(value = "adminCategories")
@@ -67,8 +68,13 @@ public class CategoryService {
     /**
      * GET /api/categories/{id}
      * Returns single category by ID
+     * GLOBAL DATA - Same for all users
+     * NOW WITH CACHING!
      */
+    @Cacheable(value = "adminCategories", key = "#id")
     public CategoryDTO getCategoryById(String id) {
+        System.out.println("CACHE MISS: Fetching category by ID: " + id);
+        
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
         return CategoryDTO.fromEntity(category);
@@ -77,6 +83,7 @@ public class CategoryService {
     /**
      * GET /api/user/categories/info
      * Get global categories info for frontend (UserController endpoint)
+     * GLOBAL DATA - Same for all users
      * Uses data directly from category model - NO EXTRA QUERIES!
      * This is SUPER FAST - just 1 database query for all categories
      */
@@ -116,8 +123,9 @@ public class CategoryService {
     /**
      * POST /api/categories
      * Create new category with auto-assigned displayOrder
+     * FIXED: Changed categoriesProgress -> categoryProgress
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoriesProgress" }, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
     public CategoryDTO createCategory(CategoryDTO categoryDTO, User createdBy) {
         // Check if category name already exists
         if (categoryRepository.existsByNameIgnoreCase(categoryDTO.getName())) {
@@ -151,8 +159,9 @@ public class CategoryService {
     /**
      * PUT /api/categories/{id}
      * Update category name and/or displayOrder
+     * FIXED: Changed categoriesProgress -> categoryProgress
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoriesProgress" }, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
     public CategoryDTO updateCategory(String id, CategoryDTO categoryDTO) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
@@ -181,8 +190,9 @@ public class CategoryService {
     /**
      * DELETE /api/categories/{id}
      * Delete category and all its questions (cascade)
+     * FIXED: Changed categoriesProgress -> categoryProgress
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoriesProgress",
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress",
             "questionsMetadata", "userProgressMap", "userMeStats" }, allEntries = true)
     @Transactional
     public Map<String, Object> deleteCategory(String id) {
@@ -201,8 +211,7 @@ public class CategoryService {
             // Delete solutions for all questions
             for (String questionId : questionIds) {
                 solutionRepository.deleteByQuestion_Id(questionId);
-                // OLD: approachRepository.deleteByQuestion_Id(questionId);
-                // NEW: Use ApproachService to delete from UserApproaches documents
+                // Use ApproachService to delete from UserApproaches documents
                 approachService.deleteAllApproachesForQuestion(questionId);
             }
 
@@ -232,8 +241,9 @@ public class CategoryService {
     /**
      * Helper method: Add question to category's question list
      * Called from QuestionService when creating/updating questions
+     * FIXED: Added categoryProgress to cache eviction
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories" }, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
     public void addQuestionToCategory(String categoryId, String questionId, QuestionLevel level) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -247,8 +257,9 @@ public class CategoryService {
     /**
      * Helper method: Remove question from category's question list
      * Called from QuestionService when deleting questions
+     * FIXED: Added categoryProgress to cache eviction
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories" }, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
     public void removeQuestionFromCategory(String categoryId, String questionId, QuestionLevel level) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -262,8 +273,9 @@ public class CategoryService {
     /**
      * Helper method: Move question between categories or levels
      * Called from QuestionService when updating question category/level
+     * FIXED: Added categoryProgress to cache eviction
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories" }, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
     public void moveQuestion(String oldCategoryId, String newCategoryId,
             String questionId, QuestionLevel oldLevel, QuestionLevel newLevel) {
         // Remove from old category
@@ -295,8 +307,9 @@ public class CategoryService {
 
     /**
      * Admin: Update category display order
+     * FIXED: Added categoryProgress to cache eviction
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories" }, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
     public CategoryDTO updateCategoryDisplayOrder(String id, Integer newOrder) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -311,8 +324,9 @@ public class CategoryService {
 
     /**
      * Admin: Batch update category display orders
+     * FIXED: Added categoryProgress to cache eviction
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories" }, allEntries = true)
+    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
     public List<CategoryDTO> batchUpdateDisplayOrder(Map<String, Integer> orderMap) {
         List<Category> updatedCategories = new ArrayList<>();
 

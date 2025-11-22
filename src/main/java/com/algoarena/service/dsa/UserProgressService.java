@@ -1,10 +1,12 @@
 // src/main/java/com/algoarena/service/user/UserProgressService.java
 package com.algoarena.service.dsa;
 
+import com.algoarena.dto.user.CategoryProgressDTO;
 import com.algoarena.dto.user.UserMeStatsDTO;
 import com.algoarena.dto.user.UserMeStatsDTO.SolvedQuestionInfo;
 import com.algoarena.dto.user.UserMeStatsDTO.StatsOverview;
 import com.algoarena.dto.user.UserMeStatsDTO.PaginatedSolvedQuestions;
+import com.algoarena.model.Category;
 import com.algoarena.model.Question;
 import com.algoarena.model.UserProgress;
 import com.algoarena.model.UserProgress.SolvedQuestion;
@@ -41,46 +43,43 @@ public class UserProgressService {
     public UserMeStatsDTO getUserMeStats(String userId, int page, int size) {
         UserProgress progress = userProgressRepository.findByUserId(userId)
                 .orElse(new UserProgress(userId));
-        
+
         StatsOverview stats = new StatsOverview(
-            progress.getTotalSolved(),
-            progress.getEasySolved(),
-            progress.getMediumSolved(),
-            progress.getHardSolved(),
-            progress.getLastSolvedAt()
-        );
-        
+                progress.getTotalSolved(),
+                progress.getEasySolved(),
+                progress.getMediumSolved(),
+                progress.getHardSolved(),
+                progress.getLastSolvedAt());
+
         List<SolvedQuestionInfo> allSolved = progress.getSolvedQuestions().values().stream()
                 .sorted(Comparator.comparing(SolvedQuestion::getSolvedAt).reversed())
                 .map(sq -> new SolvedQuestionInfo(
-                    sq.getQuestionId(),
-                    sq.getTitle(),
-                    sq.getCategory(),
-                    sq.getLevel(),
-                    sq.getSolvedAt()
-                ))
+                        sq.getQuestionId(),
+                        sq.getTitle(),
+                        sq.getCategory(),
+                        sq.getLevel(),
+                        sq.getSolvedAt()))
                 .collect(Collectors.toList());
-        
+
         long totalElements = allSolved.size();
         int totalPages = (int) Math.ceil((double) totalElements / size);
         int start = page * size;
         int end = Math.min(start + size, allSolved.size());
-        
+
         List<SolvedQuestionInfo> pagedQuestions = new ArrayList<>();
         if (start < totalElements) {
             pagedQuestions = allSolved.subList(start, end);
         }
-        
+
         PaginatedSolvedQuestions paginatedQuestions = new PaginatedSolvedQuestions(
-            pagedQuestions,
-            page,
-            size,
-            totalElements,
-            totalPages,
-            page < totalPages - 1,
-            page > 0
-        );
-        
+                pagedQuestions,
+                page,
+                size,
+                totalElements,
+                totalPages,
+                page < totalPages - 1,
+                page > 0);
+
         return new UserMeStatsDTO(stats, paginatedQuestions);
     }
 
@@ -99,24 +98,23 @@ public class UserProgressService {
                 .orElseGet(() -> createUserProgress(userId));
     }
 
-    @CacheEvict(value = "userMeStats", allEntries = true)
+    @CacheEvict(value = { "userMeStats", "categoryProgress" }, allEntries = true)
     public void markQuestionAsSolved(String userId, String questionId) {
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new RuntimeException("Question not found"));
-        
+
         UserProgress progress = getOrCreateUserProgress(userId);
-        
+
         if (progress.isQuestionSolved(questionId)) {
             throw new RuntimeException("Question already marked as solved");
         }
-        
+
         progress.addSolvedQuestion(
-            questionId,
-            question.getTitle(),
-            question.getCategory().getName(),
-            question.getLevel()
-        );
-        
+                questionId,
+                question.getTitle(),
+                question.getCategory().getName(),
+                question.getLevel());
+
         userProgressRepository.save(progress);
     }
 
@@ -126,24 +124,24 @@ public class UserProgressService {
                 .orElse(false);
     }
 
-    @CacheEvict(value = "userMeStats", allEntries = true)
+    @CacheEvict(value = { "userMeStats", "categoryProgress" }, allEntries = true)
     public void unmarkQuestionAsSolved(String userId, String questionId) {
         UserProgress progress = userProgressRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("User progress not found"));
-        
+
         if (!progress.isQuestionSolved(questionId)) {
             throw new RuntimeException("Question not solved by user");
         }
-        
+
         progress.removeSolvedQuestion(questionId);
         userProgressRepository.save(progress);
     }
 
-    @CacheEvict(value = "userMeStats", allEntries = true)
+    @CacheEvict(value = { "userMeStats", "categoryProgress" }, allEntries = true)
     public int removeQuestionFromAllUsers(String questionId) {
         List<UserProgress> allProgress = userProgressRepository.findAll();
         int removedCount = 0;
-        
+
         for (UserProgress progress : allProgress) {
             if (progress.isQuestionSolved(questionId)) {
                 progress.removeSolvedQuestion(questionId);
@@ -152,16 +150,16 @@ public class UserProgressService {
                 logger.info("Removed question {} from user {}", questionId, progress.getUserId());
             }
         }
-        
+
         logger.info("Removed question {} from {} users' progress", questionId, removedCount);
         return removedCount;
     }
 
-    @CacheEvict(value = "userMeStats", allEntries = true)
+    @CacheEvict(value = { "userMeStats", "categoryProgress" }, allEntries = true)
     public int removeQuestionsFromAllUsers(List<String> questionIds) {
         List<UserProgress> allProgress = userProgressRepository.findAll();
         int totalRemoved = 0;
-        
+
         for (UserProgress progress : allProgress) {
             int removedFromUser = 0;
             for (String questionId : questionIds) {
@@ -170,17 +168,48 @@ public class UserProgressService {
                     removedFromUser++;
                 }
             }
-            
+
             if (removedFromUser > 0) {
                 userProgressRepository.save(progress);
                 totalRemoved += removedFromUser;
                 logger.info("Removed {} questions from user {}", removedFromUser, progress.getUserId());
             }
         }
-        
+
         logger.info("Removed total {} question entries from all users' progress", totalRemoved);
         return totalRemoved;
     }
 
-    
+    /**
+     * Get user's progress for a specific category
+     * Returns only solved questions that belong to this category
+     */
+    @Cacheable(value = "categoryProgress", key = "#userId + '-' + #categoryId")
+    public CategoryProgressDTO getCategoryProgress(String userId, String categoryId) {
+        // Fetch user progress
+        UserProgress progress = userProgressRepository.findByUserId(userId)
+                .orElse(new UserProgress(userId));
+
+        // Fetch category just to get its NAME
+        Category category = categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new RuntimeException("Category not found"));
+
+        String targetCategoryName = category.getName(); // e.g., "Graph"
+
+        // Single loop - filter by category name (TRUE O(S)!)
+        List<CategoryProgressDTO.SolvedQuestionItem> solvedInCategory = progress.getSolvedQuestions().values().stream()
+                .filter(sq -> sq.getCategory().equals(targetCategoryName)) // O(1) string comparison!
+                .map(sq -> new CategoryProgressDTO.SolvedQuestionItem(
+                        sq.getQuestionId(),
+                        sq.getSolvedAt()))
+                .collect(Collectors.toList());
+
+        logger.info("Retrieved category progress for user {} in category {}: {} solved questions",
+                userId, categoryId, solvedInCategory.size());
+
+        return new CategoryProgressDTO(
+                categoryId,
+                solvedInCategory,
+                solvedInCategory.size());
+    }
 }
