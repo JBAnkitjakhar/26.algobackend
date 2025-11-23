@@ -12,7 +12,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -182,37 +181,4 @@ public class CategoryController {
         }
     }
 
-    /**
-     * PUT /api/categories/display-order/batch
-     * Batch update category display orders
-     * 
-     * Request body:
-     * {
-     *   "categoryId1": 1,
-     *   "categoryId2": 2,
-     *   "categoryId3": 3
-     * }
-     */
-    @PutMapping("/display-order/batch")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> batchUpdateDisplayOrder(
-            @RequestBody Map<String, Integer> orderMap) {
-        try {
-            List<CategoryDTO> updatedCategories = categoryService.batchUpdateDisplayOrder(orderMap);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Display orders updated successfully");
-            response.put("data", updatedCategories);
-            response.put("updatedCount", updatedCategories.size());
-            
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "Failed to batch update display orders");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-    }
 }

@@ -165,19 +165,6 @@ public class ApproachController {
     }
 
     /**
-     * GET /api/approaches/my-approaches
-     * Get all approaches by current user
-     */
-    @GetMapping("/my-approaches")
-    public ResponseEntity<List<ApproachMetadataDTO>> getMyAllApproaches(
-            Authentication authentication
-    ) {
-        User currentUser = (User) authentication.getPrincipal();
-        List<ApproachMetadataDTO> approaches = approachService.getMyAllApproaches(currentUser.getId());
-        return ResponseEntity.ok(approaches);
-    }
-
-    /**
      * GET /api/approaches/question/{questionId}/usage
      * Get usage stats for current user on a question
      * Shows remaining space and slots

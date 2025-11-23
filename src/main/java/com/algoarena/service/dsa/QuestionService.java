@@ -326,27 +326,6 @@ public class QuestionService {
                 " for question: " + question.getTitle());
     }
 
-    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary" }, allEntries = true)
-    @Transactional
-    public int batchUpdateDisplayOrder(List<Map<String, Object>> updates) {
-        int updatedCount = 0;
-
-        for (Map<String, Object> update : updates) {
-            String questionId = (String) update.get("questionId");
-            Integer displayOrder = ((Number) update.get("displayOrder")).intValue();
-
-            Question question = questionRepository.findById(questionId).orElse(null);
-            if (question != null) {
-                question.setDisplayOrder(displayOrder);
-                questionRepository.save(question);
-                updatedCount++;
-            }
-        }
-
-        System.out.println("✓ Batch updated displayOrder for " + updatedCount + " questions");
-        return updatedCount;
-    }
-
     public List<Map<String, Object>> getQuestionsByCategoryAndLevelForOrdering(String categoryId, String levelStr) {
         QuestionLevel level = QuestionLevel.valueOf(levelStr.toUpperCase());
         List<Question> questions = questionRepository.findByCategory_IdAndLevel(categoryId, level);
