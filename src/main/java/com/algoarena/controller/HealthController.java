@@ -58,7 +58,8 @@ public class HealthController {
         health.put("timestamp", System.currentTimeMillis());
         health.put("datetime", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         health.put("application", "AlgoArena Backend");
-        health.put("version", "1.0.0");
+        // ❌ REMOVED: Hard-coded version
+        // health.put("version", "1.0.0");
 
         // Check MongoDB connectivity
         try {

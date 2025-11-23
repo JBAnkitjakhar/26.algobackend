@@ -38,7 +38,8 @@ public class AdminOverviewDTO {
     public static class SystemHealthStatus {
         private boolean databaseConnected;
         private String databaseStatus;
-        private String appVersion;
+        // ❌ REMOVED: appVersion field
+        // private String appVersion;
         
         // Constructor
         public SystemHealthStatus() {
@@ -68,13 +69,14 @@ public class AdminOverviewDTO {
             this.databaseStatus = databaseStatus;
         }
         
-        public String getAppVersion() {
-            return appVersion;
-        }
-        
-        public void setAppVersion(String appVersion) {
-            this.appVersion = appVersion;
-        }
+        // ❌ REMOVED: Version getter/setter
+        // public String getAppVersion() {
+        //     return appVersion;
+        // }
+        // 
+        // public void setAppVersion(String appVersion) {
+        //     this.appVersion = appVersion;
+        // }
     }
     
     // Constructors

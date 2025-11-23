@@ -7,7 +7,7 @@ import com.algoarena.model.User;
 import com.algoarena.model.UserApproaches;
 import com.algoarena.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+// ❌ REMOVED: import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -44,8 +44,9 @@ public class AdminOverviewService {
     @Autowired
     private MongoTemplate mongoTemplate;
 
-    @Value("${spring.application.version:1.0.0}")
-    private String appVersion;
+    // ❌ REMOVED: Version injection
+    // @Value("${spring.application.version:1.0.0}")
+    // private String appVersion;
 
     /**
      * Generate complete admin overview statistics
@@ -112,8 +113,7 @@ public class AdminOverviewService {
      * Get total user approach count
      */
     private long getUserApproachCount() {
-        // OLD: return approachRepository.count();
-        // NEW: Count total approaches across all users
+        // Count total approaches across all users
         return userApproachesRepository.findAll().stream()
                 .mapToLong(UserApproaches::getTotalApproaches)
                 .sum();
@@ -179,7 +179,8 @@ public class AdminOverviewService {
             health.setDatabaseStatus("Error: " + e.getMessage());
         }
 
-        health.setAppVersion(appVersion);
+        // ❌ REMOVED: Version setting
+        // health.setAppVersion(appVersion);
 
         return health;
     }

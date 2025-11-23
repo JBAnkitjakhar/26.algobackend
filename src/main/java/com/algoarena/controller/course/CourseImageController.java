@@ -149,6 +149,10 @@ public class CourseImageController {
             if (afterUpload.startsWith("v") && afterUpload.indexOf("/") > 0) {
                 afterUpload = afterUpload.substring(afterUpload.indexOf("/") + 1);
             }
+            
+// https://res.cloudinary.com/cloud/image/upload/v1234567890/algoarena/courses/uuid.jpg
+//                                                   ^^^^^^^^^^
+//                                                   This is Cloudinary's cache version
 
             // Remove file extension
             int dotIndex = afterUpload.lastIndexOf(".");
