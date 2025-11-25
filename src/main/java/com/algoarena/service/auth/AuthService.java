@@ -5,7 +5,6 @@ import com.algoarena.model.User;
 import com.algoarena.model.UserRole;
 import com.algoarena.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 import org.slf4j.Logger;

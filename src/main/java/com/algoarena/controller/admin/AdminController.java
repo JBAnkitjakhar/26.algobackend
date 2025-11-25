@@ -14,10 +14,10 @@ import com.algoarena.service.admin.AdminOverviewService;
 import com.algoarena.service.admin.UserService;
 import com.algoarena.service.dsa.QuestionService;
 import com.algoarena.service.dsa.SolutionService;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+ 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -44,7 +44,7 @@ public class AdminController {
 
     @Autowired
     private UserService userService;
-
+ 
     /**
      * NEW: Get admin overview statistics
      * Returns all dashboard statistics in a single call
@@ -258,4 +258,5 @@ public class AdminController {
             this.role = role;
         }
     }
+
 }

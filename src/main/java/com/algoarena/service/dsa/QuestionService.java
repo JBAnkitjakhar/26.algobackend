@@ -243,7 +243,7 @@ public class QuestionService {
                 question.getLevel());
 
         // STEP 2: Delete related data
-        solutionRepository.deleteByQuestion_Id(id);
+        solutionRepository.deleteByQuestionId(id);
         // OLD: approachRepository.deleteByQuestion_Id(id);
         // NEW: Use ApproachService to delete from UserApproaches documents
         approachService.deleteAllApproachesForQuestion(id);
@@ -383,7 +383,7 @@ public class QuestionService {
             dto.setHasCodeSnippets(question.getCodeSnippets() != null && !question.getCodeSnippets().isEmpty());
             dto.setCreatedByName(question.getCreatedBy() != null ? question.getCreatedBy().getName() : "Unknown");
             dto.setUpdatedAt(question.getUpdatedAt());
-            dto.setSolutionCount((int) solutionRepository.countByQuestion_Id(question.getId()));
+            dto.setSolutionCount((int) solutionRepository.countByQuestionId(question.getId()));
 
             return dto;
         });

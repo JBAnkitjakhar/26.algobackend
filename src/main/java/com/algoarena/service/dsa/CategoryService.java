@@ -1,5 +1,4 @@
 // File: src/main/java/com/algoarena/service/dsa/CategoryService.java
-// Replace the entire service with this updated version
 
 package com.algoarena.service.dsa;
 
@@ -191,7 +190,7 @@ public class CategoryService {
         if (!questionIds.isEmpty()) {
             // Delete solutions for all questions
             for (String questionId : questionIds) {
-                solutionRepository.deleteByQuestion_Id(questionId);
+                solutionRepository.deleteByQuestionId(questionId);
                 approachService.deleteAllApproachesForQuestion(questionId);
             }
 

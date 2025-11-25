@@ -6,8 +6,6 @@ import com.algoarena.model.User;
 import com.algoarena.service.dsa.SolutionService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -24,7 +22,7 @@ public class SolutionController {
     @Autowired
     private SolutionService solutionService;
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id}") //  specific solution
     public ResponseEntity<SolutionDTO> getSolutionById(@PathVariable String id) {
         SolutionDTO solution = solutionService.getSolutionById(id);
         if (solution == null) {
@@ -32,21 +30,14 @@ public class SolutionController {
         }
         return ResponseEntity.ok(solution);
     }
-
-    @GetMapping
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Page<SolutionDTO>> getAllSolutions(Pageable pageable) {
-        Page<SolutionDTO> solutions = solutionService.getAllSolutions(pageable);
-        return ResponseEntity.ok(solutions);
-    }
-
-    @GetMapping("/question/{questionId}")
+ 
+    @GetMapping("/question/{questionId}")  // all solutions belong to that question id
     public ResponseEntity<List<SolutionDTO>> getSolutionsByQuestion(@PathVariable String questionId) {
         List<SolutionDTO> solutions = solutionService.getSolutionsByQuestion(questionId);
         return ResponseEntity.ok(solutions);
     }
 
-    @PostMapping("/question/{questionId}")
+    @PostMapping("/question/{questionId}") // create new solution
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
     public ResponseEntity<SolutionDTO> createSolution(
             @PathVariable String questionId,
@@ -58,7 +49,7 @@ public class SolutionController {
         return ResponseEntity.status(201).body(createdSolution);
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id}")// solution id
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
     public ResponseEntity<SolutionDTO> updateSolution(
             @PathVariable String id,
@@ -82,8 +73,6 @@ public class SolutionController {
             return ResponseEntity.notFound().build();
         }
     }
-
-    // ==================== IMAGE MANAGEMENT ENDPOINTS ====================
 
     /**
      * Add image to solution
@@ -119,8 +108,6 @@ public class SolutionController {
         }
     }
 
-    // ==================== VISUALIZER MANAGEMENT ENDPOINTS ====================
-
     /**
      * Add visualizer to solution
      */
@@ -154,8 +141,6 @@ public class SolutionController {
             return ResponseEntity.notFound().build();
         }
     }
-
-    // ==================== LINK VALIDATION ENDPOINTS ====================
 
     /**
      * Validate YouTube link and extract video info
@@ -227,79 +212,4 @@ public class SolutionController {
         }
     }
 
-    // ==================== STATISTICS ENDPOINTS ====================
-
-    /**
-     * Get solutions with images
-     */
-    @GetMapping("/with-images")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<List<SolutionDTO>> getSolutionsWithImages() {
-        List<SolutionDTO> solutions = solutionService.getSolutionsWithImages();
-        return ResponseEntity.ok(solutions);
-    }
-
-    /**
-     * Get solutions with visualizers
-     */
-    @GetMapping("/with-visualizers")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<List<SolutionDTO>> getSolutionsWithVisualizers() {
-        List<SolutionDTO> solutions = solutionService.getSolutionsWithVisualizers();
-        return ResponseEntity.ok(solutions);
-    }
-
-    /**
-     * NEW: Get solutions with YouTube videos
-     */
-    @GetMapping("/with-youtube")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<List<SolutionDTO>> getSolutionsWithYoutubeVideos() {
-        List<SolutionDTO> solutions = solutionService.getSolutionsWithYoutubeVideos();
-        return ResponseEntity.ok(solutions);
-    }
-
-    /**
-     * Get solutions by creator
-     */
-    @GetMapping("/creator/{creatorId}")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Page<SolutionDTO>> getSolutionsByCreator(
-            @PathVariable String creatorId,
-            Pageable pageable
-    ) {
-        Page<SolutionDTO> solutions = solutionService.getSolutionsByCreator(creatorId, pageable);
-        return ResponseEntity.ok(solutions);
-    }
-
-    /**
-     * NEW: Get solution statistics including media counts
-     */
-    @GetMapping("/stats")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> getSolutionStatistics() {
-        Map<String, Object> stats = new HashMap<>();
-        
-        // Get all solutions for counting
-        List<SolutionDTO> allSolutions = solutionService.getAllSolutions(Pageable.unpaged()).getContent();
-        
-        stats.put("totalSolutions", allSolutions.size());
-        stats.put("solutionsWithImages", solutionService.getSolutionsWithImages().size());
-        stats.put("solutionsWithVisualizers", solutionService.getSolutionsWithVisualizers().size());
-        stats.put("solutionsWithYoutubeVideos", solutionService.getSolutionsWithYoutubeVideos().size());
-        
-        // Count solutions with different combinations
-        long solutionsWithDriveLinks = allSolutions.stream()
-                .mapToLong(s -> s.hasValidDriveLink() ? 1 : 0)
-                .sum();
-        
-        long solutionsWithBothLinks = allSolutions.stream()
-                .mapToLong(s -> (s.hasValidDriveLink() && s.hasValidYoutubeLink()) ? 1 : 0)
-                .sum();
-        
-        stats.put("solutionsWithDriveLinks", solutionsWithDriveLinks);
-        stats.put("solutionsWithBothLinks", solutionsWithBothLinks);
-        
-        return ResponseEntity.ok(stats);
-    }
 }
