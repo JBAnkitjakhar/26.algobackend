@@ -32,7 +32,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Autowired
     private JwtService jwtService;
 
-    @Value("${app.cors.allowed-origins:https://24-algofront.vercel.app}")
+    @Value("${app.cors.allowed-origins:https://jbalgoarena.com}")
     private String allowedOrigins;
 
     @Override

@@ -66,16 +66,10 @@ AlgoArena uses **Caffeine Cache** (in-memory caching) with the following configu
 
 ### 3. Category Caches
 
-#### `adminCategories`
+#### `globalCategories`
 - **Purpose:** Admin category management with full question lists
 - **Key:** None (single cache entry)
 - **Content:** Categories with question IDs grouped by level
-- **Evicted On:** Create/Update/Delete category or question
-
-#### `globalCategories`
-- **Purpose:** Public categories for user browsing
-- **Key:** None (single cache entry)
-- **Content:** Categories with question metadata
 - **Evicted On:** Create/Update/Delete category or question
 
 ### 4. User Progress Caches (User-Specific)

@@ -9,7 +9,7 @@ import org.springframework.cache.annotation.EnableCaching;  // ← ADD THIS IMPO
 
 @SpringBootApplication
 @EnableScheduling
-@EnableCaching  // ← ADD THIS ANNOTATION
+@EnableCaching  // ← ADD THIS ANNOTATION  and if we want custom caching strategy for diffrent diffrent services then create cacheconfig file but currently that is okey
 public class AlgoArenaBackendApplication {
 
 	public static void main(String[] args) {

@@ -41,9 +41,12 @@ public class User implements UserDetails {
 
     private UserRole role = UserRole.USER;
 
-    // NEW FIELD: Track last login time for admin stats
+    // ✅ CHANGED: Added index for admin overview "users logged in today" query
+    @Indexed(name = "lastLogin_idx")
     private LocalDateTime lastLogin;
 
+    // ✅ CHANGED: Added index for admin overview "new users" query
+    @Indexed(name = "createdAt_idx")
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

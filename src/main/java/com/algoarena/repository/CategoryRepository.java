@@ -1,4 +1,5 @@
-// src/main/java/com/algoarena/repository/CategoryRepository.java
+// File: src/main/java/com/algoarena/repository/CategoryRepository.java
+
 package com.algoarena.repository;
 
 import com.algoarena.model.Category;
@@ -16,13 +17,11 @@ public interface CategoryRepository extends MongoRepository<Category, String> {
     @Query("{ 'name': { $regex: ?0, $options: 'i' } }")
     Optional<Category> findByNameIgnoreCase(String name);
 
-    // FIXED: Changed from boolean to Boolean (wrapper class)
-    // OR use @Query with exists=true
     @Query(value = "{ 'name': { $regex: ?0, $options: 'i' } }", exists = true)
     boolean existsByNameIgnoreCase(String name);
 
-    // Find all categories sorted by displayOrder, then name
-    List<Category> findAllByOrderByDisplayOrderAscNameAsc();
+    // UPDATED: Sort by displayOrder, then createdAt (for duplicates), then name
+    List<Category> findAllByOrderByDisplayOrderAscCreatedAtAscNameAsc();
     
     // Find all categories sorted by name
     List<Category> findAllByOrderByNameAsc();
@@ -41,14 +40,14 @@ public interface CategoryRepository extends MongoRepository<Category, String> {
     @Query("{ 'createdAt': { $gte: ?0 } }")
     List<Category> findCategoriesCreatedAfter(java.time.LocalDateTime date);
     
-    // NEW: Count categories without displayOrder (for migration)
+    // Count categories without displayOrder (for migration)
     @Query(value = "{ 'displayOrder': null }", count = true)
     long countByDisplayOrderIsNull();
     
-    // NEW: Find categories without displayOrder
+    // Find categories without displayOrder
     @Query("{ 'displayOrder': null }")
     List<Category> findByDisplayOrderIsNull();
     
-    // NEW: Find highest displayOrder
+    // Find highest displayOrder
     Optional<Category> findTopByOrderByDisplayOrderDesc();
 }

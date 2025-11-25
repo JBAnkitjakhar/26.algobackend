@@ -19,7 +19,7 @@ public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler 
 
     private static final Logger logger = LoggerFactory.getLogger(OAuth2FailureHandler.class);
 
-    @Value("${app.cors.allowed-origins:https://24-algofront.vercel.app}")
+    @Value("${app.cors.allowed-origins:https://jbalgoarena.com}")
     private String allowedOrigins;
 
     @Override

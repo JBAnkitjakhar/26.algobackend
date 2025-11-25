@@ -1,8 +1,10 @@
-// src/main/java/com/algoarena/service/dsa/CategoryService.java
+// File: src/main/java/com/algoarena/service/dsa/CategoryService.java
+// Replace the entire service with this updated version
+
 package com.algoarena.service.dsa;
 
 import com.algoarena.dto.dsa.CategoryDTO;
-import com.algoarena.dto.user.GlobalCategoryInfoDTO;
+import com.algoarena.dto.dsa.CategoryMetadataDTO;
 import com.algoarena.model.Category;
 import com.algoarena.model.Question;
 import com.algoarena.model.QuestionLevel;
@@ -41,19 +43,12 @@ public class CategoryService {
     /**
      * GET /api/categories
      * Returns Map<String, CategoryDTO> with category name as key
-     * GLOBAL DATA - Same for all users
-     * Response format:
-     * {
-     *   "Arrays": { id, name, displayOrder, questionIds by level, counts, ... },
-     *   "HashMap": { ... },
-     *   ...
-     * }
      */
-    @Cacheable(value = "adminCategories")
+    @Cacheable(value = "globalCategories")
     public Map<String, CategoryDTO> getAllCategories() {
         System.out.println("CACHE MISS: Fetching all categories from database");
 
-        List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscNameAsc();
+        List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscCreatedAtAscNameAsc();
 
         Map<String, CategoryDTO> categoryMap = new LinkedHashMap<>();
 
@@ -68,64 +63,44 @@ public class CategoryService {
     /**
      * GET /api/categories/{id}
      * Returns single category by ID
-     * GLOBAL DATA - Same for all users
-     * NOW WITH CACHING!
      */
-    @Cacheable(value = "adminCategories", key = "#id")
+    @Cacheable(value = "globalCategories", key = "#id")
     public CategoryDTO getCategoryById(String id) {
         System.out.println("CACHE MISS: Fetching category by ID: " + id);
-        
+
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
         return CategoryDTO.fromEntity(category);
     }
 
     /**
-     * GET /api/user/categories/info
-     * Get global categories info for frontend (UserController endpoint)
-     * GLOBAL DATA - Same for all users
-     * Uses data directly from category model - NO EXTRA QUERIES!
-     * This is SUPER FAST - just 1 database query for all categories
+     * GET /api/categories/metadata
+     * Get lightweight category metadata (id, name, createdAt, updatedAt)
+     * Used for admin dropdowns when creating/editing questions
+     * NO CACHING - Fast enough for 50 categories (~2ms query)
      */
-    @Cacheable(value = "globalCategories")
-    public GlobalCategoryInfoDTO getGlobalCategoriesInfo() {
-        System.out.println("CACHE MISS: Fetching global categories info from database");
+    public List<CategoryMetadataDTO> getCategoriesMetadata() {
+        System.out.println("Fetching category metadata (id, name, createdAt, updatedAt)");
 
-        List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscNameAsc();
-        Map<String, GlobalCategoryInfoDTO.CategoryInfo> categoryInfoMap = new HashMap<>();
+        List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscCreatedAtAscNameAsc();
 
-        for (Category category : categories) {
-            GlobalCategoryInfoDTO.CategoryInfo info = new GlobalCategoryInfoDTO.CategoryInfo();
-            info.setId(category.getId());
-            info.setName(category.getName());
-
-            // Use data directly from category model - NO EXTRA QUERIES!
-            info.setEasyQuestionIds(new ArrayList<>(category.getEasyQuestionIds()));
-            info.setMediumQuestionIds(new ArrayList<>(category.getMediumQuestionIds()));
-            info.setHardQuestionIds(new ArrayList<>(category.getHardQuestionIds()));
-
-            info.setEasyCount(category.getEasyCount());
-            info.setMediumCount(category.getMediumCount());
-            info.setHardCount(category.getHardCount());
-            info.setTotalQuestions(category.getTotalQuestions());
-
-            categoryInfoMap.put(category.getId(), info);
-        }
-
-        GlobalCategoryInfoDTO result = new GlobalCategoryInfoDTO();
-        result.setCategories(categoryInfoMap);
-
-        System.out.println("✓ Loaded " + categories.size() + " categories in ONE query!");
-
-        return result;
+        return categories.stream()
+                .map(category -> new CategoryMetadataDTO(
+                    category.getId(), 
+                    category.getName(),
+                    category.getCreatedAt(),
+                    category.getUpdatedAt()
+                ))
+                .collect(Collectors.toList());
     }
 
     /**
      * POST /api/categories
-     * Create new category with auto-assigned displayOrder
-     * FIXED: Changed categoriesProgress -> categoryProgress
+     * Create new category
+     * UPDATED: Admin can optionally provide displayOrder
+     * If not provided, auto-assigns (max + 1)
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
     public CategoryDTO createCategory(CategoryDTO categoryDTO, User createdBy) {
         // Check if category name already exists
         if (categoryRepository.existsByNameIgnoreCase(categoryDTO.getName())) {
@@ -136,13 +111,21 @@ public class CategoryService {
         category.setName(categoryDTO.getName().trim());
         category.setCreatedBy(createdBy);
 
-        // Auto-assign displayOrder (highest + 1)
-        Integer maxOrder = categoryRepository.findTopByOrderByDisplayOrderDesc()
-                .map(Category::getDisplayOrder)
-                .orElse(0);
-        category.setDisplayOrder(maxOrder + 1);
+        // UPDATED: Use provided displayOrder OR auto-assign
+        if (categoryDTO.getDisplayOrder() != null) {
+            // Admin provided displayOrder - use it
+            category.setDisplayOrder(categoryDTO.getDisplayOrder());
+            System.out.println("Using admin-provided displayOrder: " + categoryDTO.getDisplayOrder());
+        } else {
+            // No displayOrder provided - auto-assign (max + 1)
+            Integer maxOrder = categoryRepository.findTopByOrderByDisplayOrderDesc()
+                    .map(Category::getDisplayOrder)
+                    .orElse(0);
+            category.setDisplayOrder(maxOrder + 1);
+            System.out.println("Auto-assigned displayOrder: " + (maxOrder + 1));
+        }
 
-        // Initialize empty lists (already done in constructor, but explicit)
+        // Initialize empty lists
         category.setEasyQuestionIds(new ArrayList<>());
         category.setMediumQuestionIds(new ArrayList<>());
         category.setHardQuestionIds(new ArrayList<>());
@@ -159,9 +142,8 @@ public class CategoryService {
     /**
      * PUT /api/categories/{id}
      * Update category name and/or displayOrder
-     * FIXED: Changed categoriesProgress -> categoryProgress
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
     public CategoryDTO updateCategory(String id, CategoryDTO categoryDTO) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
@@ -175,7 +157,7 @@ public class CategoryService {
             category.setName(categoryDTO.getName().trim());
         }
 
-        // Update displayOrder if provided
+        // Update displayOrder if provided (duplicates allowed!)
         if (categoryDTO.getDisplayOrder() != null) {
             category.setDisplayOrder(categoryDTO.getDisplayOrder());
         }
@@ -190,9 +172,8 @@ public class CategoryService {
     /**
      * DELETE /api/categories/{id}
      * Delete category and all its questions (cascade)
-     * FIXED: Changed categoriesProgress -> categoryProgress
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress",
+    @CacheEvict(value = { "globalCategories", "categoryProgress",
             "questionsMetadata", "userProgressMap", "userMeStats" }, allEntries = true)
     @Transactional
     public Map<String, Object> deleteCategory(String id) {
@@ -211,7 +192,6 @@ public class CategoryService {
             // Delete solutions for all questions
             for (String questionId : questionIds) {
                 solutionRepository.deleteByQuestion_Id(questionId);
-                // Use ApproachService to delete from UserApproaches documents
                 approachService.deleteAllApproachesForQuestion(questionId);
             }
 
@@ -239,11 +219,9 @@ public class CategoryService {
     }
 
     /**
-     * Helper method: Add question to category's question list
-     * Called from QuestionService when creating/updating questions
-     * FIXED: Added categoryProgress to cache eviction
+     * Helper: Add question to category
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
     public void addQuestionToCategory(String categoryId, String questionId, QuestionLevel level) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -255,11 +233,9 @@ public class CategoryService {
     }
 
     /**
-     * Helper method: Remove question from category's question list
-     * Called from QuestionService when deleting questions
-     * FIXED: Added categoryProgress to cache eviction
+     * Helper: Remove question from category
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
     public void removeQuestionFromCategory(String categoryId, String questionId, QuestionLevel level) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -271,11 +247,9 @@ public class CategoryService {
     }
 
     /**
-     * Helper method: Move question between categories or levels
-     * Called from QuestionService when updating question category/level
-     * FIXED: Added categoryProgress to cache eviction
+     * Helper: Move question between categories or levels
      */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
     public void moveQuestion(String oldCategoryId, String newCategoryId,
             String questionId, QuestionLevel oldLevel, QuestionLevel newLevel) {
         // Remove from old category
@@ -287,7 +261,7 @@ public class CategoryService {
                 System.out.println("✓ Removed question from old category: " + oldCategory.getName());
             }
         } else if (oldCategoryId != null && oldCategoryId.equals(newCategoryId) && oldLevel != newLevel) {
-            // Same category, different level - remove from old level
+            // Same category, different level
             Category category = categoryRepository.findById(oldCategoryId).orElse(null);
             if (category != null) {
                 category.removeQuestionId(questionId, oldLevel);
@@ -303,49 +277,6 @@ public class CategoryService {
             categoryRepository.save(newCategory);
             System.out.println("✓ Added question to new category: " + newCategory.getName() + " (" + newLevel + ")");
         }
-    }
-
-    /**
-     * Admin: Update category display order
-     * FIXED: Added categoryProgress to cache eviction
-     */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
-    public CategoryDTO updateCategoryDisplayOrder(String id, Integer newOrder) {
-        Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Category not found"));
-
-        category.setDisplayOrder(newOrder);
-        Category updated = categoryRepository.save(category);
-
-        System.out.println("✓ Updated displayOrder for '" + category.getName() + "' to " + newOrder);
-
-        return CategoryDTO.fromEntity(updated);
-    }
-
-    /**
-     * Admin: Batch update category display orders
-     * FIXED: Added categoryProgress to cache eviction
-     */
-    @CacheEvict(value = { "adminCategories", "globalCategories", "categoryProgress" }, allEntries = true)
-    public List<CategoryDTO> batchUpdateDisplayOrder(Map<String, Integer> orderMap) {
-        List<Category> updatedCategories = new ArrayList<>();
-
-        for (Map.Entry<String, Integer> entry : orderMap.entrySet()) {
-            String categoryId = entry.getKey();
-            Integer newOrder = entry.getValue();
-
-            Category category = categoryRepository.findById(categoryId).orElse(null);
-            if (category != null) {
-                category.setDisplayOrder(newOrder);
-                updatedCategories.add(categoryRepository.save(category));
-            }
-        }
-
-        System.out.println("✓ Batch updated displayOrder for " + updatedCategories.size() + " categories");
-
-        return updatedCategories.stream()
-                .map(CategoryDTO::fromEntity)
-                .collect(Collectors.toList());
     }
 
     // Utility methods

@@ -87,8 +87,7 @@ public class QuestionService {
     /**
      * CREATE QUESTION - UPDATED TO MAINTAIN CATEGORY LISTS
      */
-    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary",
-            "questionsMetadata" }, allEntries = true)
+    @CacheEvict(value = {"globalCategories", "adminQuestionsSummary", "questionsMetadata" }, allEntries = true)
     @Transactional
     public QuestionDTO createQuestion(QuestionDTO questionDTO, User currentUser) {
         if (questionRepository.existsByTitleIgnoreCase(questionDTO.getTitle())) {
@@ -153,7 +152,7 @@ public class QuestionService {
     /**
      * UPDATE QUESTION - UPDATED TO MAINTAIN CATEGORY LISTS
      */
-    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary", "questionsMetadata",
+    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata",
             "adminQuestionDetail" }, allEntries = true)
     @Transactional
     public QuestionDTO updateQuestion(String id, QuestionDTO questionDTO) {
@@ -230,7 +229,7 @@ public class QuestionService {
     /**
      * DELETE QUESTION - UPDATED TO MAINTAIN CATEGORY LISTS
      */
-    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary", "questionsMetadata",
+    @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata",
             "adminQuestionDetail" }, allEntries = true)
     @Transactional
     public void deleteQuestion(String id) {
@@ -313,7 +312,7 @@ public class QuestionService {
                 .toList();
     }
 
-    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary" }, allEntries = true)
+    // @CacheEvict(value = { "globalCategories", "adminQuestionsSummary" }, allEntries = true)
     @Transactional
     public void updateQuestionDisplayOrder(String questionId, Integer displayOrder) {
         Question question = questionRepository.findById(questionId)
@@ -345,27 +344,27 @@ public class QuestionService {
                 .toList();
     }
 
-    @CacheEvict(value = { "globalCategories", "adminCategories", "adminQuestionsSummary" }, allEntries = true)
-    @Transactional
-    public int resetDisplayOrder(String categoryId, String levelStr) {
-        QuestionLevel level = QuestionLevel.valueOf(levelStr.toUpperCase());
-        List<Question> questions = questionRepository.findByCategory_IdAndLevel(categoryId, level);
+    // @CacheEvict(value = { "globalCategories", "adminQuestionsSummary" }, allEntries = true)
+    // @Transactional
+    // public int resetDisplayOrder(String categoryId, String levelStr) {
+    //     QuestionLevel level = QuestionLevel.valueOf(levelStr.toUpperCase());
+    //     List<Question> questions = questionRepository.findByCategory_IdAndLevel(categoryId, level);
 
-        questions.sort(Comparator
-                .comparing((Question q) -> q.getDisplayOrder() != null ? q.getDisplayOrder() : Integer.MAX_VALUE)
-                .thenComparing(Question::getCreatedAt));
+    //     questions.sort(Comparator
+    //             .comparing((Question q) -> q.getDisplayOrder() != null ? q.getDisplayOrder() : Integer.MAX_VALUE)
+    //             .thenComparing(Question::getCreatedAt));
 
-        int order = 1;
-        for (Question question : questions) {
-            question.setDisplayOrder(order++);
-            questionRepository.save(question);
-        }
+    //     int order = 1;
+    //     for (Question question : questions) {
+    //         question.setDisplayOrder(order++);
+    //         questionRepository.save(question);
+    //     }
 
-        System.out.println("✓ Reset displayOrder for " + questions.size() +
-                " questions in category " + categoryId + " - " + level);
+    //     System.out.println("✓ Reset displayOrder for " + questions.size() +
+    //             " questions in category " + categoryId + " - " + level);
 
-        return questions.size();
-    }
+    //     return questions.size();
+    // }
 
     @Cacheable(value = "adminQuestionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
     public Page<AdminQuestionSummaryDTO> getAdminQuestionsSummary(Pageable pageable) {

@@ -4,6 +4,7 @@ package com.algoarena.model;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.DBRef;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,6 +37,7 @@ public class Question {
     @DBRef
     private User createdBy;
 
+    @Indexed(name = "createdAt_idx")
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 

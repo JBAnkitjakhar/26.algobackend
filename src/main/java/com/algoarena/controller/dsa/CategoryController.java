@@ -1,7 +1,9 @@
-// src/main/java/com/algoarena/controller/dsa/CategoryController.java
+// File: src/main/java/com/algoarena/controller/dsa/CategoryController.java
+
 package com.algoarena.controller.dsa;
 
 import com.algoarena.dto.dsa.CategoryDTO;
+import com.algoarena.dto.dsa.CategoryMetadataDTO;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.CategoryService;
 import jakarta.validation.Valid;
@@ -12,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -24,20 +27,31 @@ public class CategoryController {
     /**
      * GET /api/categories
      * Get all categories with question IDs
-     * Returns: Map<String, CategoryDTO> with category name as key
-     * 
-     * Response format:
-     * {
-     *   "Arrays": { id, name, displayOrder, easyQuestionIds, mediumQuestionIds, hardQuestionIds, counts, ... },
-     *   "HashMap": { ... },
-     *   ...
-     * }
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, CategoryDTO>> getAllCategories() {
         Map<String, CategoryDTO> categories = categoryService.getAllCategories();
         return ResponseEntity.ok(categories);
+    }
+
+    /**
+     * GET /api/categories/metadata
+     * Get category metadata (id + name only) for admin dropdowns
+     * No caching - fast enough for 50 categories
+     * 
+     * Response:
+     * [
+     *   { "id": "abc123", "name": "Arrays" },
+     *   { "id": "def456", "name": "HashMap" },
+     *   ...
+     * ]
+     */
+    @GetMapping("/metadata")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<List<CategoryMetadataDTO>> getCategoriesMetadata() {
+        List<CategoryMetadataDTO> metadata = categoryService.getCategoriesMetadata();
+        return ResponseEntity.ok(metadata);
     }
 
     /**
@@ -58,12 +72,6 @@ public class CategoryController {
     /**
      * POST /api/categories
      * Create new category
-     * Auto-assigns displayOrder (highest + 1)
-     * 
-     * Request body:
-     * {
-     *   "name": "New Category"
-     * }
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
@@ -141,44 +149,6 @@ public class CategoryController {
         }
     }
 
-    /**
-     * PUT /api/categories/{id}/display-order
-     * Update category display order
-     * 
-     * Request body:
-     * {
-     *   "displayOrder": 5
-     * }
-     */
-    @PutMapping("/{id}/display-order")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
-    public ResponseEntity<Map<String, Object>> updateCategoryDisplayOrder(
-            @PathVariable String id,
-            @RequestBody Map<String, Integer> request) {
-        try {
-            Integer newOrder = request.get("displayOrder");
-            if (newOrder == null) {
-                Map<String, Object> errorResponse = new HashMap<>();
-                errorResponse.put("success", false);
-                errorResponse.put("error", "displayOrder is required");
-                return ResponseEntity.badRequest().body(errorResponse);
-            }
-            
-            CategoryDTO updatedCategory = categoryService.updateCategoryDisplayOrder(id, newOrder);
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("message", "Display order updated successfully");
-            response.put("data", updatedCategory);
-            
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("error", "Failed to update display order");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.badRequest().body(errorResponse);
-        }
-    }
-
+    // ❌ REMOVED: updateCategoryDisplayOrder endpoint
+    // Use PUT /api/categories/{id} instead with displayOrder in body
 }
