@@ -1,7 +1,6 @@
 // src/main/java/com/algoarena/controller/user/UserController.java
 package com.algoarena.controller.user;
 
-import com.algoarena.dto.user.CategoryProgressDTO;
 import com.algoarena.dto.user.UserMeStatsDTO;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.UserProgressService;
@@ -22,15 +21,15 @@ public class UserController {
     @Autowired
     private UserProgressService userProgressService;
 
+    /**
+     * GET /api/user/me/stats
+     * Returns all solved questions (no sorting, no pagination)
+     * Frontend handles sorting/pagination
+     */
     @GetMapping("/me/stats")
-    public ResponseEntity<UserMeStatsDTO> getUserMeStats(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "15") int size,
-            Authentication authentication) {
-        
+    public ResponseEntity<UserMeStatsDTO> getUserMeStats(Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
-        UserMeStatsDTO stats = userProgressService.getUserMeStats(currentUser.getId(), page, size);
-        
+        UserMeStatsDTO stats = userProgressService.getUserMeStats(currentUser.getId());
         return ResponseEntity.ok(stats);
     }
 
@@ -58,7 +57,7 @@ public class UserController {
         
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("message", "Question marked as solved successfully");
+        response.put("message", "Question marked as solved");
         
         return ResponseEntity.ok(response);
     }
@@ -73,24 +72,8 @@ public class UserController {
         
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("message", "Question unmarked successfully");
+        response.put("message", "Question unmarked");
         
         return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get user's solved questions for a specific category
-     * Returns only questionIds with solvedAt timestamps
-     */
-    @GetMapping("/me/progress/category/{categoryId}")
-    public ResponseEntity<CategoryProgressDTO> getCategoryProgress(
-            @PathVariable String categoryId,
-            Authentication authentication) {
-        
-        User currentUser = (User) authentication.getPrincipal();
-        CategoryProgressDTO progress = userProgressService
-            .getCategoryProgress(currentUser.getId(), categoryId);
-        
-        return ResponseEntity.ok(progress);
     }
 }

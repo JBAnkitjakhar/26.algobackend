@@ -1,34 +1,28 @@
-// src/main/java/com/algoarena/service/user/UserProgressService.java
+// File: src/main/java/com/algoarena/service/dsa/UserProgressService.java
 package com.algoarena.service.dsa;
 
-import com.algoarena.dto.user.CategoryProgressDTO;
+import com.algoarena.config.RateLimitConfig;
 import com.algoarena.dto.user.UserMeStatsDTO;
-import com.algoarena.dto.user.UserMeStatsDTO.SolvedQuestionInfo;
-import com.algoarena.dto.user.UserMeStatsDTO.StatsOverview;
-import com.algoarena.dto.user.UserMeStatsDTO.PaginatedSolvedQuestions;
-import com.algoarena.model.Category;
-import com.algoarena.model.Question;
+import com.algoarena.exception.*;
 import com.algoarena.model.UserProgress;
-import com.algoarena.model.UserProgress.SolvedQuestion;
-import com.algoarena.repository.CategoryRepository;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.repository.UserProgressRepository;
+import io.github.bucket4j.Bucket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class UserProgressService {
 
     private static final Logger logger = LoggerFactory.getLogger(UserProgressService.class);
+    private static final int MAX_RETRIES = 3;
 
     @Autowired
     private UserProgressRepository userProgressRepository;
@@ -37,50 +31,52 @@ public class UserProgressService {
     private QuestionRepository questionRepository;
 
     @Autowired
-    private CategoryRepository categoryRepository;
+    private RateLimitConfig rateLimitConfig;
 
-    @Cacheable(value = "userMeStats", key = "#userId + '-' + #page + '-' + #size")
-    public UserMeStatsDTO getUserMeStats(String userId, int page, int size) {
+    /**
+     * Check rate limit for WRITE operations
+     */
+    private void checkWriteRateLimit(String userId) {
+        Bucket bucket = rateLimitConfig.resolveWriteBucket(userId);
+        if (!bucket.tryConsume(1)) {
+            logger.warn("⚠️ Write rate limit exceeded for user: {}", userId);
+            throw new RateLimitExceededException();
+        }
+    }
+
+    /**
+     * Check rate limit for READ operations
+     */
+    private void checkReadRateLimit(String userId) {
+        Bucket bucket = rateLimitConfig.resolveReadBucket(userId);
+        if (!bucket.tryConsume(1)) {
+            logger.warn("⚠️ Read rate limit exceeded for user: {}", userId);
+            throw new RateLimitExceededException();
+        }
+    }
+
+    /**
+     * Validate question ID
+     */
+    private void validateQuestionId(String questionId) {
+        if (questionId == null || questionId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Question ID is required");
+        }
+    }
+
+    /**
+     * Get user stats - cached by userId
+     */
+    @Cacheable(value = "userMeStats", key = "#userId")
+    public UserMeStatsDTO getUserMeStats(String userId) {
+        checkReadRateLimit(userId);
+        
         UserProgress progress = userProgressRepository.findByUserId(userId)
                 .orElse(new UserProgress(userId));
 
-        StatsOverview stats = new StatsOverview(
-                progress.getTotalSolved(),
-                progress.getEasySolved(),
-                progress.getMediumSolved(),
-                progress.getHardSolved(),
-                progress.getLastSolvedAt());
-
-        List<SolvedQuestionInfo> allSolved = progress.getSolvedQuestions().values().stream()
-                .sorted(Comparator.comparing(SolvedQuestion::getSolvedAt).reversed())
-                .map(sq -> new SolvedQuestionInfo(
-                        sq.getQuestionId(),
-                        sq.getTitle(),
-                        sq.getCategory(),
-                        sq.getLevel(),
-                        sq.getSolvedAt()))
-                .collect(Collectors.toList());
-
-        long totalElements = allSolved.size();
-        int totalPages = (int) Math.ceil((double) totalElements / size);
-        int start = page * size;
-        int end = Math.min(start + size, allSolved.size());
-
-        List<SolvedQuestionInfo> pagedQuestions = new ArrayList<>();
-        if (start < totalElements) {
-            pagedQuestions = allSolved.subList(start, end);
-        }
-
-        PaginatedSolvedQuestions paginatedQuestions = new PaginatedSolvedQuestions(
-                pagedQuestions,
-                page,
-                size,
-                totalElements,
-                totalPages,
-                page < totalPages - 1,
-                page > 0);
-
-        return new UserMeStatsDTO(stats, paginatedQuestions);
+        int totalSolved = progress.getSolvedQuestions().size();
+        
+        return new UserMeStatsDTO(totalSolved, progress.getSolvedQuestions());
     }
 
     public UserProgress getUserProgress(String userId) {
@@ -98,46 +94,119 @@ public class UserProgressService {
                 .orElseGet(() -> createUserProgress(userId));
     }
 
-    @CacheEvict(value = { "userMeStats", "categoryProgress" }, allEntries = true)
+    /**
+     * Mark question as solved - evicts ONLY this user's cache
+     */
+    @CacheEvict(value = "userMeStats", key = "#userId")
     public void markQuestionAsSolved(String userId, String questionId) {
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new RuntimeException("Question not found"));
+        checkWriteRateLimit(userId);
+        validateQuestionId(questionId);
+        
+        int attempt = 0;
+        
+        while (attempt < MAX_RETRIES) {
+            try {
+                if (!questionRepository.existsById(questionId)) {
+                    throw new QuestionNotFoundException(questionId);
+                }
 
-        UserProgress progress = getOrCreateUserProgress(userId);
+                UserProgress progress = getOrCreateUserProgress(userId);
 
-        if (progress.isQuestionSolved(questionId)) {
-            throw new RuntimeException("Question already marked as solved");
+                if (progress.isQuestionSolved(questionId)) {
+                    throw new QuestionAlreadySolvedException(questionId);
+                }
+
+                progress.addSolvedQuestion(questionId);
+                userProgressRepository.save(progress);
+                
+                logger.info("✅ User {} marked question {} as solved", userId, questionId);
+                return;
+                
+            } catch (IllegalArgumentException | QuestionNotFoundException | QuestionAlreadySolvedException e) {
+                throw e;
+                
+            } catch (OptimisticLockingFailureException e) {
+                attempt++;
+                if (attempt >= MAX_RETRIES) {
+                    logger.error("❌ Failed to mark question after {} attempts", MAX_RETRIES);
+                    throw new ConcurrentModificationException();
+                }
+                
+                logger.warn("⚠️ Optimistic lock conflict, retrying... (attempt {}/{})", 
+                        attempt, MAX_RETRIES);
+                
+                try {
+                    Thread.sleep(50 * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Operation interrupted");
+                }
+            }
         }
-
-        progress.addSolvedQuestion(
-                questionId,
-                question.getTitle(),
-                question.getCategory().getName(),
-                question.getLevel());
-
-        userProgressRepository.save(progress);
     }
 
+    /**
+     * Check if question is solved
+     */
     public boolean isQuestionSolved(String userId, String questionId) {
+        checkReadRateLimit(userId);
+        validateQuestionId(questionId);
+        
         return userProgressRepository.findByUserId(userId)
                 .map(progress -> progress.isQuestionSolved(questionId))
                 .orElse(false);
     }
 
-    @CacheEvict(value = { "userMeStats", "categoryProgress" }, allEntries = true)
+    /**
+     * Unmark question - evicts ONLY this user's cache
+     */
+    @CacheEvict(value = "userMeStats", key = "#userId")
     public void unmarkQuestionAsSolved(String userId, String questionId) {
-        UserProgress progress = userProgressRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User progress not found"));
+        checkWriteRateLimit(userId);
+        validateQuestionId(questionId);
+        
+        int attempt = 0;
+        
+        while (attempt < MAX_RETRIES) {
+            try {
+                UserProgress progress = userProgressRepository.findByUserId(userId)
+                        .orElseThrow(() -> new RuntimeException("User progress not found"));
 
-        if (!progress.isQuestionSolved(questionId)) {
-            throw new RuntimeException("Question not solved by user");
+                if (!progress.isQuestionSolved(questionId)) {
+                    throw new QuestionNotSolvedException(questionId);
+                }
+
+                progress.removeSolvedQuestion(questionId);
+                userProgressRepository.save(progress);
+                
+                logger.info("✅ User {} unmarked question {}", userId, questionId);
+                return;
+                
+            } catch (IllegalArgumentException | QuestionNotSolvedException e) {
+                throw e;
+                
+            } catch (OptimisticLockingFailureException e) {
+                attempt++;
+                if (attempt >= MAX_RETRIES) {
+                    throw new ConcurrentModificationException();
+                }
+                
+                logger.warn("⚠️ Optimistic lock conflict, retrying...");
+                
+                try {
+                    Thread.sleep(50 * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Operation interrupted");
+                }
+            }
         }
-
-        progress.removeSolvedQuestion(questionId);
-        userProgressRepository.save(progress);
     }
 
-    @CacheEvict(value = { "userMeStats", "categoryProgress" }, allEntries = true)
+    /**
+     * Remove question from all users - clears ALL caches
+     */
+    @CacheEvict(value = "userMeStats", allEntries = true)
     public int removeQuestionFromAllUsers(String questionId) {
         List<UserProgress> allProgress = userProgressRepository.findAll();
         int removedCount = 0;
@@ -147,15 +216,17 @@ public class UserProgressService {
                 progress.removeSolvedQuestion(questionId);
                 userProgressRepository.save(progress);
                 removedCount++;
-                logger.info("Removed question {} from user {}", questionId, progress.getUserId());
             }
         }
 
-        logger.info("Removed question {} from {} users' progress", questionId, removedCount);
+        logger.info("Removed question {} from {} users", questionId, removedCount);
         return removedCount;
     }
 
-    @CacheEvict(value = { "userMeStats", "categoryProgress" }, allEntries = true)
+    /**
+     * Remove questions from all users - clears ALL caches
+     */
+    @CacheEvict(value = "userMeStats", allEntries = true)
     public int removeQuestionsFromAllUsers(List<String> questionIds) {
         List<UserProgress> allProgress = userProgressRepository.findAll();
         int totalRemoved = 0;
@@ -172,44 +243,10 @@ public class UserProgressService {
             if (removedFromUser > 0) {
                 userProgressRepository.save(progress);
                 totalRemoved += removedFromUser;
-                logger.info("Removed {} questions from user {}", removedFromUser, progress.getUserId());
             }
         }
 
-        logger.info("Removed total {} question entries from all users' progress", totalRemoved);
+        logger.info("Removed {} question entries from all users", totalRemoved);
         return totalRemoved;
-    }
-
-    /**
-     * Get user's progress for a specific category
-     * Returns only solved questions that belong to this category
-     */
-    @Cacheable(value = "categoryProgress", key = "#userId + '-' + #categoryId")
-    public CategoryProgressDTO getCategoryProgress(String userId, String categoryId) {
-        // Fetch user progress
-        UserProgress progress = userProgressRepository.findByUserId(userId)
-                .orElse(new UserProgress(userId));
-
-        // Fetch category just to get its NAME
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new RuntimeException("Category not found"));
-
-        String targetCategoryName = category.getName(); // e.g., "Graph"
-
-        // Single loop - filter by category name (TRUE O(S)!)
-        List<CategoryProgressDTO.SolvedQuestionItem> solvedInCategory = progress.getSolvedQuestions().values().stream()
-                .filter(sq -> sq.getCategory().equals(targetCategoryName)) // O(1) string comparison!
-                .map(sq -> new CategoryProgressDTO.SolvedQuestionItem(
-                        sq.getQuestionId(),
-                        sq.getSolvedAt()))
-                .collect(Collectors.toList());
-
-        logger.info("Retrieved category progress for user {} in category {}: {} solved questions",
-                userId, categoryId, solvedInCategory.size());
-
-        return new CategoryProgressDTO(
-                categoryId,
-                solvedInCategory,
-                solvedInCategory.size());
     }
 }

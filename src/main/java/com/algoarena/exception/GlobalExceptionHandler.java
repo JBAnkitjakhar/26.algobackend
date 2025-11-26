@@ -1,5 +1,4 @@
-// src/main/java/com/algoarena/exception/GlobalExceptionHandler.java
-
+// File: src/main/java/com/algoarena/exception/GlobalExceptionHandler.java
 package com.algoarena.exception;
 
 import org.springframework.http.HttpStatus;
@@ -45,6 +44,61 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgumentException(
+            IllegalArgumentException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", "Invalid input");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(QuestionNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleQuestionNotFoundException(
+            QuestionNotFoundException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", "Question not found");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(QuestionAlreadySolvedException.class)
+    public ResponseEntity<Map<String, Object>> handleQuestionAlreadySolvedException(
+            QuestionAlreadySolvedException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", "Already solved");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(QuestionNotSolvedException.class)
+    public ResponseEntity<Map<String, Object>> handleQuestionNotSolvedException(
+            QuestionNotSolvedException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", "Not solved");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(ConcurrentModificationException.class)
+    public ResponseEntity<Map<String, Object>> handleConcurrentModificationException(
+            ConcurrentModificationException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", "Concurrent modification");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntimeException(
             RuntimeException ex) {
@@ -65,5 +119,16 @@ public class GlobalExceptionHandler {
         response.put("message", "An unexpected error occurred");
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleRateLimitExceeded(
+            RateLimitExceededException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", "Rate limit exceeded");
+        response.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(response);
     }
 }

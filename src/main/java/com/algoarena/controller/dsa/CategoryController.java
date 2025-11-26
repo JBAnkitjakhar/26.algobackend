@@ -148,7 +148,5 @@ public class CategoryController {
             return ResponseEntity.badRequest().body(errorResponse);
         }
     }
-
-    // ❌ REMOVED: updateCategoryDisplayOrder endpoint
-    // Use PUT /api/categories/{id} instead with displayOrder in body
+    
 }

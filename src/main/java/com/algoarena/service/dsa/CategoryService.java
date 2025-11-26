@@ -1,5 +1,4 @@
 // File: src/main/java/com/algoarena/service/dsa/CategoryService.java
-
 package com.algoarena.service.dsa;
 
 import com.algoarena.dto.dsa.CategoryDTO;
@@ -74,12 +73,12 @@ public class CategoryService {
 
     /**
      * GET /api/categories/metadata
-     * Get lightweight category metadata (id, name, createdAt, updatedAt)
+     * Get lightweight category metadata (id, name, createdByName, counts, createdAt, updatedAt)
      * Used for admin dropdowns when creating/editing questions
      * NO CACHING - Fast enough for 50 categories (~2ms query)
      */
     public List<CategoryMetadataDTO> getCategoriesMetadata() {
-        System.out.println("Fetching category metadata (id, name, createdAt, updatedAt)");
+        System.out.println("Fetching category metadata (id, name, createdByName, counts, timestamps)");
 
         List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscCreatedAtAscNameAsc();
 
@@ -87,6 +86,11 @@ public class CategoryService {
                 .map(category -> new CategoryMetadataDTO(
                     category.getId(), 
                     category.getName(),
+                    category.getCreatedByName(),
+                    category.getEasyCount(),
+                    category.getMediumCount(),
+                    category.getHardCount(),
+                    category.getTotalQuestions(),
                     category.getCreatedAt(),
                     category.getUpdatedAt()
                 ))
@@ -96,8 +100,7 @@ public class CategoryService {
     /**
      * POST /api/categories
      * Create new category
-     * UPDATED: Admin can optionally provide displayOrder
-     * If not provided, auto-assigns (max + 1)
+     * UPDATED: Stores creator name and ID directly (denormalized)
      */
     @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
     public CategoryDTO createCategory(CategoryDTO categoryDTO, User createdBy) {
@@ -108,15 +111,16 @@ public class CategoryService {
 
         Category category = new Category();
         category.setName(categoryDTO.getName().trim());
-        category.setCreatedBy(createdBy);
+        
+        // UPDATED: Store denormalized creator fields
+        category.setCreatedByName(createdBy.getName());
+        category.setCreatedById(createdBy.getId());
 
-        // UPDATED: Use provided displayOrder OR auto-assign
+        // Use provided displayOrder OR auto-assign
         if (categoryDTO.getDisplayOrder() != null) {
-            // Admin provided displayOrder - use it
             category.setDisplayOrder(categoryDTO.getDisplayOrder());
             System.out.println("Using admin-provided displayOrder: " + categoryDTO.getDisplayOrder());
         } else {
-            // No displayOrder provided - auto-assign (max + 1)
             Integer maxOrder = categoryRepository.findTopByOrderByDisplayOrderDesc()
                     .map(Category::getDisplayOrder)
                     .orElse(0);
@@ -133,6 +137,7 @@ public class CategoryService {
         Category savedCategory = categoryRepository.save(category);
 
         System.out.println("✓ Created category: " + savedCategory.getName() +
+                " by " + savedCategory.getCreatedByName() +
                 " (displayOrder: " + savedCategory.getDisplayOrder() + ")");
 
         return CategoryDTO.fromEntity(savedCategory);

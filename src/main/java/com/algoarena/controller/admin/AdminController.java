@@ -1,6 +1,5 @@
 // src/main/java/com/algoarena/controller/admin/AdminController.java
 package com.algoarena.controller.admin;
-
 import java.util.HashMap;
 import java.util.Map;
 import com.algoarena.dto.admin.AdminOverviewDTO;
@@ -258,5 +257,5 @@ public class AdminController {
             this.role = role;
         }
     }
-
+  
 }

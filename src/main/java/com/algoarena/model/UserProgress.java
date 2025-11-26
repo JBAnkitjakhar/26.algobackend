@@ -2,6 +2,7 @@
 package com.algoarena.model;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.index.Indexed;
 
@@ -18,131 +19,32 @@ public class UserProgress {
     @Indexed(unique = true)
     private String userId;
     
-    private Map<String, SolvedQuestion> solvedQuestions = new HashMap<>();
+    @Version  // Thread-safe: prevents concurrent modifications
+    private Long version;
     
-    private int totalSolved = 0;
-    private int easySolved = 0;
-    private int mediumSolved = 0;
-    private int hardSolved = 0;
+    private Map<String, LocalDateTime> solvedQuestions = new HashMap<>();
     
-    private LocalDateTime lastSolvedAt;
-    private LocalDateTime createdAt;
-
-    public static class SolvedQuestion {
-        private String questionId;
-        private String title;
-        private String category;
-        private QuestionLevel level;
-        private LocalDateTime solvedAt;
-        
-        public SolvedQuestion() {}
-        
-        public SolvedQuestion(String questionId, String title, String category, 
-                            QuestionLevel level, LocalDateTime solvedAt) {
-            this.questionId = questionId;
-            this.title = title;
-            this.category = category;
-            this.level = level;
-            this.solvedAt = solvedAt;
-        }
-        
-        public String getQuestionId() {
-            return questionId;
-        }
-        
-        public void setQuestionId(String questionId) {
-            this.questionId = questionId;
-        }
-        
-        public String getTitle() {
-            return title;
-        }
-        
-        public void setTitle(String title) {
-            this.title = title;
-        }
-        
-        public String getCategory() {
-            return category;
-        }
-        
-        public void setCategory(String category) {
-            this.category = category;
-        }
-        
-        public QuestionLevel getLevel() {
-            return level;
-        }
-        
-        public void setLevel(QuestionLevel level) {
-            this.level = level;
-        }
-        
-        public LocalDateTime getSolvedAt() {
-            return solvedAt;
-        }
-        
-        public void setSolvedAt(LocalDateTime solvedAt) {
-            this.solvedAt = solvedAt;
-        }
-    }
-    
-    public UserProgress() {
-        this.createdAt = LocalDateTime.now();
-    }
+    public UserProgress() {}
     
     public UserProgress(String userId) {
         this.id = userId;
         this.userId = userId;
-        this.createdAt = LocalDateTime.now();
     }
     
-    public void addSolvedQuestion(String questionId, String title, String category, QuestionLevel level) {
-        if (!solvedQuestions.containsKey(questionId)) {
-            SolvedQuestion solved = new SolvedQuestion(questionId, title, category, level, LocalDateTime.now());
-            solvedQuestions.put(questionId, solved);
-            
-            totalSolved++;
-            switch (level) {
-                case EASY:
-                    easySolved++;
-                    break;
-                case MEDIUM:
-                    mediumSolved++;
-                    break;
-                case HARD:
-                    hardSolved++;
-                    break;
-            }
-            
-            lastSolvedAt = LocalDateTime.now();
-        }
+    public void addSolvedQuestion(String questionId) {
+        solvedQuestions.put(questionId, LocalDateTime.now());
     }
     
     public boolean isQuestionSolved(String questionId) {
         return solvedQuestions.containsKey(questionId);
     }
     
-    public SolvedQuestion getSolvedQuestion(String questionId) {
+    public LocalDateTime getSolvedAt(String questionId) {
         return solvedQuestions.get(questionId);
     }
     
     public void removeSolvedQuestion(String questionId) {
-        SolvedQuestion removed = solvedQuestions.remove(questionId);
-        if (removed != null) {
-            totalSolved--;
-            switch (removed.getLevel()) {
-                case EASY:
-                    easySolved--;
-                    break;
-                case MEDIUM:
-                    mediumSolved--;
-                    break;
-                case HARD:
-                    hardSolved--;
-                    break;
-            }
-        }
+        solvedQuestions.remove(questionId);
     }
     
     public String getId() {
@@ -162,59 +64,29 @@ public class UserProgress {
         this.id = userId;
     }
     
-    public Map<String, SolvedQuestion> getSolvedQuestions() {
+    public Long getVersion() {
+        return version;
+    }
+    
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+    
+    public Map<String, LocalDateTime> getSolvedQuestions() {
         return solvedQuestions;
     }
     
-    public void setSolvedQuestions(Map<String, SolvedQuestion> solvedQuestions) {
+    public void setSolvedQuestions(Map<String, LocalDateTime> solvedQuestions) {
         this.solvedQuestions = solvedQuestions;
     }
     
-    public int getTotalSolved() {
-        return totalSolved;
-    }
-    
-    public void setTotalSolved(int totalSolved) {
-        this.totalSolved = totalSolved;
-    }
-    
-    public int getEasySolved() {
-        return easySolved;
-    }
-    
-    public void setEasySolved(int easySolved) {
-        this.easySolved = easySolved;
-    }
-    
-    public int getMediumSolved() {
-        return mediumSolved;
-    }
-    
-    public void setMediumSolved(int mediumSolved) {
-        this.mediumSolved = mediumSolved;
-    }
-    
-    public int getHardSolved() {
-        return hardSolved;
-    }
-    
-    public void setHardSolved(int hardSolved) {
-        this.hardSolved = hardSolved;
-    }
-    
-    public LocalDateTime getLastSolvedAt() {
-        return lastSolvedAt;
-    }
-    
-    public void setLastSolvedAt(LocalDateTime lastSolvedAt) {
-        this.lastSolvedAt = lastSolvedAt;
-    }
-    
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-    
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
+    @Override
+    public String toString() {
+        return "UserProgress{" +
+                "id='" + id + '\'' +
+                ", userId='" + userId + '\'' +
+                ", version=" + version +
+                ", totalSolved=" + solvedQuestions.size() +
+                '}';
     }
 }

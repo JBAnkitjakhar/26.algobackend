@@ -1,9 +1,8 @@
-// src/main/java/com/algoarena/model/Category.java
+// File: src/main/java/com/algoarena/model/Category.java
 package com.algoarena.model;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
@@ -19,24 +18,25 @@ public class Category {
     @Indexed(unique = true)
     private String name;
 
-    // Display order for category sorting
     @Indexed
     private Integer displayOrder;
 
-    // Question IDs grouped by level (sorted by displayOrder)
+    // Question IDs grouped by level
     private List<String> easyQuestionIds = new ArrayList<>();
     private List<String> mediumQuestionIds = new ArrayList<>();
     private List<String> hardQuestionIds = new ArrayList<>();
 
-    // Quick counts (for performance)
+    // Counts
     private int easyCount = 0;
     private int mediumCount = 0;
     private int hardCount = 0;
     private int totalQuestions = 0;
 
-    @DBRef
-    private User createdBy;
+    // Creator info (denormalized) - placed before timestamps
+    private String createdById;
+    private String createdByName;
 
+    // Timestamps
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -46,10 +46,11 @@ public class Category {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Category(String name, User createdBy) {
+    public Category(String name, String createdByName, String createdById) {
         this();
         this.name = name;
-        this.createdBy = createdBy;
+        this.createdByName = createdByName;
+        this.createdById = createdById;
     }
 
     // Getters and Setters
@@ -142,12 +143,20 @@ public class Category {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public User getCreatedBy() {
-        return createdBy;
+    public String getCreatedById() {
+        return createdById;
     }
 
-    public void setCreatedBy(User createdBy) {
-        this.createdBy = createdBy;
+    public void setCreatedById(String createdById) {
+        this.createdById = createdById;
+    }
+
+    public String getCreatedByName() {
+        return createdByName;
+    }
+
+    public void setCreatedByName(String createdByName) {
+        this.createdByName = createdByName;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -166,7 +175,7 @@ public class Category {
         this.updatedAt = updatedAt;
     }
 
-    // Helper methods to maintain question lists and counts
+    // Helper methods
     public void addQuestionId(String questionId, QuestionLevel level) {
         switch (level) {
             case EASY:
@@ -221,6 +230,7 @@ public class Category {
                 ", easy=" + easyCount +
                 ", medium=" + mediumCount +
                 ", hard=" + hardCount +
+                ", createdBy='" + createdByName + '\'' +
                 ", createdAt=" + createdAt +
                 '}';
     }

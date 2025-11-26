@@ -1,4 +1,4 @@
-// src/main/java/com/algoarena/dto/dsa/CategoryDTO.java
+// File: src/main/java/com/algoarena/dto/dsa/CategoryDTO.java
 package com.algoarena.dto.dsa;
 
 import com.algoarena.model.Category;
@@ -34,7 +34,7 @@ public class CategoryDTO {
     private int hardCount;
     private int totalQuestions;
     
-    // Metadata
+    // Metadata - UPDATED: Denormalized creator fields
     private String createdByName;
     private String createdById;
     private LocalDateTime createdAt;
@@ -54,8 +54,8 @@ public class CategoryDTO {
         this.mediumCount = category.getMediumCount();
         this.hardCount = category.getHardCount();
         this.totalQuestions = category.getTotalQuestions();
-        this.createdByName = category.getCreatedBy() != null ? category.getCreatedBy().getName() : null;
-        this.createdById = category.getCreatedBy() != null ? category.getCreatedBy().getId() : null;
+        this.createdByName = category.getCreatedByName();
+        this.createdById = category.getCreatedById();
         this.createdAt = category.getCreatedAt();
         this.updatedAt = category.getUpdatedAt();
     }
