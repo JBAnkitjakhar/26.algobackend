@@ -1,5 +1,6 @@
 // src/main/java/com/algoarena/controller/admin/AdminController.java
 package com.algoarena.controller.admin;
+
 import java.util.HashMap;
 import java.util.Map;
 import com.algoarena.dto.admin.AdminOverviewDTO;
@@ -16,17 +17,12 @@ import com.algoarena.service.dsa.SolutionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
- 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 
-/**
- * Admin-specific controller for summary/lightweight endpoints
- * These endpoints return minimal data for listing views
- */
 @RestController
 @RequestMapping("/admin")
 @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
@@ -43,28 +39,13 @@ public class AdminController {
 
     @Autowired
     private UserService userService;
- 
-    /**
-     * NEW: Get admin overview statistics
-     * Returns all dashboard statistics in a single call
-     * 
-     * @return AdminOverviewDTO with all statistics
-     */
+
     @GetMapping("/overview")
     public ResponseEntity<AdminOverviewDTO> getAdminOverview() {
         AdminOverviewDTO overview = adminOverviewService.getAdminOverview();
         return ResponseEntity.ok(overview);
     }
 
-    /**
-     * Get admin questions summary (lightweight, paginated)
-     * Returns minimal data without full content
-     * UPDATED: Now includes displayOrder field
-     * 
-     * @param page Page number (default: 0)
-     * @param size Page size (default: 20)
-     * @return Page of AdminQuestionSummaryDTO
-     */
     @GetMapping("/questions/summary")
     public ResponseEntity<Page<AdminQuestionSummaryDTO>> getAdminQuestionsSummary(
             @RequestParam(defaultValue = "0") int page,
@@ -93,14 +74,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * Get admin solutions summary (lightweight, paginated)
-     * Returns minimal data without full content
-     * 
-     * @param page Page number (default: 0)
-     * @param size Page size (default: 20)
-     * @return Page of AdminSolutionSummaryDTO
-     */
     @GetMapping("/solutions/summary")
     public ResponseEntity<Page<AdminSolutionSummaryDTO>> getAdminSolutionsSummary(
             @RequestParam(defaultValue = "0") int page,
@@ -112,10 +85,6 @@ public class AdminController {
         return ResponseEntity.ok(summaries);
     }
 
-    /**
-     * Get all users with pagination (Admin/SuperAdmin only)
-     * GET /api/admin/users?page=0&size=20
-     */
     @GetMapping("/users")
     public ResponseEntity<Page<UserDTO>> getAllUsers(Pageable pageable) {
         try {
@@ -126,10 +95,6 @@ public class AdminController {
         }
     }
 
-    /** 
-     * Get specific user details
-     * GET /api/admin/users/{userId}
-     */
     @GetMapping("/users/{userId}")
     public ResponseEntity<?> getUserById(@PathVariable String userId) {
         try {
@@ -144,10 +109,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * Get users by role with pagination
-     * GET /api/admin/users/role/{role}?page=0&size=20
-     */
     @GetMapping("/users/role/{role}")
     public ResponseEntity<Page<UserDTO>> getUsersByRole(
             @PathVariable String role,
@@ -163,10 +124,6 @@ public class AdminController {
         }
     }
 
-    /**
-     * Update user role (SuperAdmin can create admins, Primary SuperAdmin can do all)
-     * PUT /api/admin/users/{userId}/role
-     */
     @PutMapping("/users/{userId}/role")
     public ResponseEntity<?> updateUserRole(
             @PathVariable String userId,
@@ -191,15 +148,10 @@ public class AdminController {
         }
     }
     
-    /**
-     * Get role permissions matrix
-     * GET /api/admin/users/permissions
-     */
     @GetMapping("/users/permissions")
     public ResponseEntity<Map<String, Object>> getRolePermissions() {
         Map<String, Object> permissions = new HashMap<>();
         
-        // Define what each role can do
         Map<String, Object> userPermissions = new HashMap<>();
         userPermissions.put("canCreateQuestions", false);
         userPermissions.put("canEditQuestions", false);
@@ -213,7 +165,7 @@ public class AdminController {
         adminPermissions.put("canEditQuestions", true);
         adminPermissions.put("canDeleteQuestions", true);
         adminPermissions.put("canManageUsers", false);
-        adminPermissions.put("canChangeRoles", false); // ZERO role management
+        adminPermissions.put("canChangeRoles", false);
         adminPermissions.put("canAccessAdminPanel", true);
         
         Map<String, Object> superAdminPermissions = new HashMap<>();
@@ -221,7 +173,7 @@ public class AdminController {
         superAdminPermissions.put("canEditQuestions", true);
         superAdminPermissions.put("canDeleteQuestions", true);
         superAdminPermissions.put("canManageUsers", true);
-        superAdminPermissions.put("canChangeRoles", true); // Can create ADMIN
+        superAdminPermissions.put("canChangeRoles", true);
         superAdminPermissions.put("canAccessAdminPanel", true);
         superAdminPermissions.put("canManageSystemSettings", true);
         
@@ -236,10 +188,6 @@ public class AdminController {
         
         return ResponseEntity.ok(response);
     }
-
-    /**
-     * Request DTO for role updates
-     */
     public static class RoleUpdateRequest {
         private UserRole role;
 
@@ -257,5 +205,5 @@ public class AdminController {
             this.role = role;
         }
     }
-  
+
 }

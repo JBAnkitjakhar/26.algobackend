@@ -3,28 +3,27 @@ package com.algoarena.dto.dsa;
 
 import com.algoarena.model.UserApproaches.ApproachData;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
-/**
- * Full DTO with all content (textContent + codeContent)
- * Used when viewing a single approach or creating/updating
- */
 public class ApproachDetailDTO {
 
     private String id;
     private String questionId;
-    private String questionTitle;
     private String userId;
     private String userName;
 
     @NotBlank(message = "Text content is required")
-    @Size(min = 10, message = "Text content must be at least 10 characters")
+    @Size(min = 10, max = 10000, message = "Text content must be between 10 and 10000 characters")
     private String textContent;
 
+    @Size(max = 5000, message = "Code content must not exceed 5000 characters")
     private String codeContent;
 
-    @Size(max = 50, message = "Code language must not exceed 50 characters")
+    @NotNull(message = "Code language is required")
+    @Pattern(regexp = "^(java|python|javascript|cpp|c|csharp|go|rust|kotlin|swift|ruby|php|typescript)$", message = "Invalid programming language. Allowed: java, python, javascript, cpp, c, csharp, go, rust, kotlin, swift, ruby, php, typescript")
     private String codeLanguage;
 
     private int contentSize;
@@ -33,13 +32,12 @@ public class ApproachDetailDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Constructors
-    public ApproachDetailDTO() {}
+    public ApproachDetailDTO() {
+    }
 
     public ApproachDetailDTO(ApproachData data, String userId, String userName) {
         this.id = data.getId();
         this.questionId = data.getQuestionId();
-        this.questionTitle = data.getQuestionTitle();
         this.userId = userId;
         this.userName = userName;
         this.textContent = data.getTextContent();
@@ -51,7 +49,6 @@ public class ApproachDetailDTO {
         this.updatedAt = data.getUpdatedAt();
     }
 
-    // Getters and Setters
     public String getId() {
         return id;
     }
@@ -66,14 +63,6 @@ public class ApproachDetailDTO {
 
     public void setQuestionId(String questionId) {
         this.questionId = questionId;
-    }
-
-    public String getQuestionTitle() {
-        return questionTitle;
-    }
-
-    public void setQuestionTitle(String questionTitle) {
-        this.questionTitle = questionTitle;
     }
 
     public String getUserId() {
@@ -148,24 +137,3 @@ public class ApproachDetailDTO {
         this.updatedAt = updatedAt;
     }
 }
-// ```
-
-// ---
-
-// ## 📁 **FILE STRUCTURE:**
-// ```
-// src/main/java/com/algoarena/
-// ├── dto/
-// │   └── dsa/
-// │       ├── ApproachMetadataDTO.java  ← Lightweight (no content)
-// │       └── ApproachDetailDTO.java    ← Full content
-// ├── model/
-// │   └── UserApproaches.java           ← Already provided
-// ├── repository/
-// │   └── UserApproachesRepository.java ← Already provided
-// ├── service/
-// │   └── dsa/
-// │       └── ApproachService.java      ← Already provided
-// └── controller/
-//     └── dsa/
-//         └── ApproachController.java   ← Already provided

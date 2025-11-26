@@ -1,6 +1,7 @@
-// File: src/main/java/com/algoarena/exception/GlobalExceptionHandler.java
+// src/main/java/com/algoarena/exception/GlobalExceptionHandler.java
 package com.algoarena.exception;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -95,6 +96,17 @@ public class GlobalExceptionHandler {
         response.put("success", false);
         response.put("error", "Concurrent modification");
         response.put("message", ex.getMessage());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleOptimisticLockingFailureException(
+            OptimisticLockingFailureException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", false);
+        response.put("error", "Concurrent modification");
+        response.put("message", "Unable to complete operation due to concurrent modifications. Please try again.");
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }

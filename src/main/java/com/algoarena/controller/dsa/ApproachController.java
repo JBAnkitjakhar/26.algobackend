@@ -1,10 +1,13 @@
 // src/main/java/com/algoarena/controller/dsa/ApproachController.java
 package com.algoarena.controller.dsa;
 
+import com.algoarena.config.RateLimitConfig;
 import com.algoarena.dto.dsa.ApproachDetailDTO;
 import com.algoarena.dto.dsa.ApproachMetadataDTO;
+import com.algoarena.exception.RateLimitExceededException;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.ApproachService;
+import io.github.bucket4j.Bucket;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,17 +26,21 @@ public class ApproachController {
     @Autowired
     private ApproachService approachService;
 
-    /**
-     * GET /api/approaches/question/{questionId}
-     * Get current user's approaches metadata for a question
-     * Returns: List of metadata (no full content)
-     */
+    @Autowired
+    private RateLimitConfig rateLimitConfig;
+
     @GetMapping("/question/{questionId}")
     public ResponseEntity<List<ApproachMetadataDTO>> getMyApproachesForQuestion(
             @PathVariable String questionId,
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
+        
+        Bucket bucket = rateLimitConfig.resolveApproachReadBucket(currentUser.getId());
+        if (!bucket.tryConsume(1)) {
+            throw new RateLimitExceededException();
+        }
+
         List<ApproachMetadataDTO> approaches = approachService.getMyApproachesForQuestion(
             currentUser.getId(), 
             questionId
@@ -41,18 +48,20 @@ public class ApproachController {
         return ResponseEntity.ok(approaches);
     }
 
-    /**
-     * GET /api/approaches/question/{questionId}/{approachId}
-     * Get full content for a specific approach
-     */
     @GetMapping("/question/{questionId}/{approachId}")
     public ResponseEntity<ApproachDetailDTO> getMyApproachDetail(
             @PathVariable String questionId,
             @PathVariable String approachId,
             Authentication authentication
     ) {
+        User currentUser = (User) authentication.getPrincipal();
+        
+        Bucket bucket = rateLimitConfig.resolveApproachReadBucket(currentUser.getId());
+        if (!bucket.tryConsume(1)) {
+            throw new RateLimitExceededException();
+        }
+
         try {
-            User currentUser = (User) authentication.getPrincipal();
             ApproachDetailDTO approach = approachService.getMyApproachDetail(
                 currentUser.getId(), 
                 questionId, 
@@ -64,18 +73,20 @@ public class ApproachController {
         }
     }
 
-    /**
-     * POST /api/approaches/question/{questionId}
-     * Create new approach for current user
-     */
     @PostMapping("/question/{questionId}")
     public ResponseEntity<Map<String, Object>> createApproach(
             @PathVariable String questionId,
             @Valid @RequestBody ApproachDetailDTO dto,
             Authentication authentication
     ) {
+        User currentUser = (User) authentication.getPrincipal();
+        
+        Bucket bucket = rateLimitConfig.resolveApproachWriteBucket(currentUser.getId());
+        if (!bucket.tryConsume(1)) {
+            throw new RateLimitExceededException();
+        }
+
         try {
-            User currentUser = (User) authentication.getPrincipal();
             ApproachDetailDTO created = approachService.createApproach(
                 currentUser.getId(), 
                 questionId, 
@@ -99,10 +110,6 @@ public class ApproachController {
         }
     }
 
-    /**
-     * PUT /api/approaches/question/{questionId}/{approachId}
-     * Update current user's approach
-     */
     @PutMapping("/question/{questionId}/{approachId}")
     public ResponseEntity<Map<String, Object>> updateApproach(
             @PathVariable String questionId,
@@ -110,8 +117,14 @@ public class ApproachController {
             @Valid @RequestBody ApproachDetailDTO dto,
             Authentication authentication
     ) {
+        User currentUser = (User) authentication.getPrincipal();
+        
+        Bucket bucket = rateLimitConfig.resolveApproachWriteBucket(currentUser.getId());
+        if (!bucket.tryConsume(1)) {
+            throw new RateLimitExceededException();
+        }
+
         try {
-            User currentUser = (User) authentication.getPrincipal();
             ApproachDetailDTO updated = approachService.updateApproach(
                 currentUser.getId(), 
                 questionId, 
@@ -135,18 +148,20 @@ public class ApproachController {
         }
     }
 
-    /**
-     * DELETE /api/approaches/question/{questionId}/{approachId}
-     * Delete current user's approach
-     */
     @DeleteMapping("/question/{questionId}/{approachId}")
     public ResponseEntity<Map<String, Object>> deleteApproach(
             @PathVariable String questionId,
             @PathVariable String approachId,
             Authentication authentication
     ) {
+        User currentUser = (User) authentication.getPrincipal();
+        
+        Bucket bucket = rateLimitConfig.resolveApproachWriteBucket(currentUser.getId());
+        if (!bucket.tryConsume(1)) {
+            throw new RateLimitExceededException();
+        }
+
         try {
-            User currentUser = (User) authentication.getPrincipal();
             approachService.deleteApproach(currentUser.getId(), questionId, approachId);
             
             Map<String, Object> response = Map.of(
@@ -164,17 +179,18 @@ public class ApproachController {
         }
     }
 
-    /**
-     * GET /api/approaches/question/{questionId}/usage
-     * Get usage stats for current user on a question
-     * Shows remaining space and slots
-     */
     @GetMapping("/question/{questionId}/usage")
     public ResponseEntity<Map<String, Object>> getMyQuestionUsage(
             @PathVariable String questionId,
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
+        
+        Bucket bucket = rateLimitConfig.resolveApproachReadBucket(currentUser.getId());
+        if (!bucket.tryConsume(1)) {
+            throw new RateLimitExceededException();
+        }
+
         Map<String, Object> usage = approachService.getMyQuestionUsage(
             currentUser.getId(), 
             questionId

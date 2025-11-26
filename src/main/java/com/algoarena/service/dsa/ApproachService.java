@@ -3,13 +3,18 @@ package com.algoarena.service.dsa;
 
 import com.algoarena.dto.dsa.ApproachDetailDTO;
 import com.algoarena.dto.dsa.ApproachMetadataDTO;
+import com.algoarena.exception.ConcurrentModificationException;
+import com.algoarena.model.ProgrammingLanguage;
 import com.algoarena.model.Question;
 import com.algoarena.model.User;
 import com.algoarena.model.UserApproaches;
 import com.algoarena.model.UserApproaches.ApproachData;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.repository.UserApproachesRepository;
+import com.algoarena.util.HtmlSanitizer;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,13 +31,14 @@ public class ApproachService {
     @Autowired
     private QuestionRepository questionRepository;
 
-    /**
-     * GET /api/approaches/question/{questionId}
-     * Get CURRENT USER's approaches metadata for a question
-     */
+    @Autowired
+    private HtmlSanitizer htmlSanitizer;
+
+    private static final int MAX_RETRY_ATTEMPTS = 3;
+
     public List<ApproachMetadataDTO> getMyApproachesForQuestion(String userId, String questionId) {
         Optional<UserApproaches> userApproachesOpt = userApproachesRepository.findByUserId(userId);
-        
+
         if (userApproachesOpt.isEmpty()) {
             return new ArrayList<>();
         }
@@ -45,21 +51,16 @@ public class ApproachService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * GET /api/approaches/question/{questionId}/{approachId}
-     * Get full content for CURRENT USER's specific approach
-     */
     public ApproachDetailDTO getMyApproachDetail(String userId, String questionId, String approachId) {
         UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("No approaches found"));
 
         ApproachData approach = userApproaches.findApproachById(approachId);
-        
+
         if (approach == null) {
             throw new RuntimeException("Approach not found");
         }
 
-        // Verify approach belongs to the specified question
         if (!approach.getQuestionId().equals(questionId)) {
             throw new RuntimeException("Approach does not belong to this question");
         }
@@ -67,105 +68,168 @@ public class ApproachService {
         return new ApproachDetailDTO(approach, userId, userApproaches.getUserName());
     }
 
-    /**
-     * POST /api/approaches/question/{questionId}
-     * Create new approach for CURRENT USER
-     */
-    public ApproachDetailDTO createApproach(String userId, String questionId, 
-                                           ApproachDetailDTO dto, User user) {
-        // Validate question exists
+    public ApproachDetailDTO createApproach(String userId, String questionId,
+            ApproachDetailDTO dto, User user) {
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new RuntimeException("Question not found"));
 
-        // Get or create user's approaches document
-        UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
-                .orElse(new UserApproaches(userId, user.getName()));
+        int attempt = 0;
+        while (attempt < MAX_RETRY_ATTEMPTS) {
+            try {
+                UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
+                        .orElse(new UserApproaches(userId, user.getName()));
 
-        // Create new approach data
-        ApproachData newApproach = new ApproachData(questionId, question.getTitle(), dto.getTextContent());
-        newApproach.setCodeContent(dto.getCodeContent());
-        newApproach.setCodeLanguage(dto.getCodeLanguage() != null ? dto.getCodeLanguage() : "java");
+                // Validate and normalize language
+                String normalizedLanguage = "java"; // default
+                if (dto.getCodeLanguage() != null && !dto.getCodeLanguage().trim().isEmpty()) {
+                    try {
+                        ProgrammingLanguage.fromString(dto.getCodeLanguage());
+                        normalizedLanguage = dto.getCodeLanguage().toLowerCase().trim();
+                    } catch (IllegalArgumentException e) {
+                        throw new RuntimeException("Invalid programming language: " + dto.getCodeLanguage() +
+                                ". Allowed: java, python, javascript, cpp, c, csharp, go, rust, kotlin, swift, ruby, php, typescript");
+                    }
+                }
 
-        // Add approach (validates 3-approach limit and 15KB combined size)
-        userApproaches.addApproach(questionId, newApproach);
+                // Sanitize
+                String safeText = htmlSanitizer.sanitizeText(dto.getTextContent());
+                String safeCode = htmlSanitizer.sanitizeCode(dto.getCodeContent());
 
-        // Save document
-        userApproachesRepository.save(userApproaches);
+                ApproachData newApproach = new ApproachData(questionId, safeText);
+                newApproach.setCodeContent(safeCode);
+                newApproach.setCodeLanguage(normalizedLanguage); // ✅ Normalized
 
-        System.out.println("✓ Created approach for user: " + user.getName() + 
-                         " on question: " + question.getTitle());
+                userApproaches.addApproach(questionId, newApproach);
 
-        return new ApproachDetailDTO(newApproach, userId, user.getName());
+                userApproachesRepository.save(userApproaches);
+
+                System.out.println("✓ Created approach for user: " + user.getName() +
+                        " on question: " + question.getTitle());
+
+                return new ApproachDetailDTO(newApproach, userId, user.getName());
+
+            } catch (OptimisticLockingFailureException e) {
+                attempt++;
+                if (attempt >= MAX_RETRY_ATTEMPTS) {
+                    throw new ConcurrentModificationException();
+                }
+                try {
+                    Thread.sleep(100 * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new ConcurrentModificationException();
+                }
+            }
+        }
+
+        throw new ConcurrentModificationException();
     }
 
-    /**
-     * PUT /api/approaches/question/{questionId}/{approachId}
-     * Update CURRENT USER's approach
-     */
-    public ApproachDetailDTO updateApproach(String userId, String questionId, 
-                                           String approachId, ApproachDetailDTO dto) {
-        UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("No approaches found"));
+    public ApproachDetailDTO updateApproach(String userId, String questionId,
+            String approachId, ApproachDetailDTO dto) {
+        int attempt = 0;
+        while (attempt < MAX_RETRY_ATTEMPTS) {
+            try {
+                UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
+                        .orElseThrow(() -> new RuntimeException("No approaches found"));
 
-        // Verify approach exists and belongs to question
-        ApproachData approach = userApproaches.findApproachById(approachId);
-        if (approach == null) {
-            throw new RuntimeException("Approach not found");
+                ApproachData approach = userApproaches.findApproachById(approachId);
+                if (approach == null) {
+                    throw new RuntimeException("Approach not found");
+                }
+                if (!approach.getQuestionId().equals(questionId)) {
+                    throw new RuntimeException("Approach does not belong to this question");
+                }
+
+                // SANITIZE text and code
+                String safeText = dto.getTextContent() != null
+                        ? htmlSanitizer.sanitizeText(dto.getTextContent())
+                        : null;
+                String safeCode = dto.getCodeContent() != null
+                        ? htmlSanitizer.sanitizeCode(dto.getCodeContent())
+                        : null;
+
+                // VALIDATE and NORMALIZE language
+                String safeLanguage = null;
+                if (dto.getCodeLanguage() != null && !dto.getCodeLanguage().trim().isEmpty()) {
+                    try {
+                        ProgrammingLanguage.fromString(dto.getCodeLanguage());
+                        safeLanguage = dto.getCodeLanguage().toLowerCase().trim();
+                    } catch (IllegalArgumentException e) {
+                        throw new RuntimeException("Invalid programming language: " + dto.getCodeLanguage() +
+                                ". Allowed: java, python, javascript, cpp, c, csharp, go, rust, kotlin, swift, ruby, php, typescript");
+                    }
+                }
+
+                userApproaches.updateApproach(approachId, safeText, safeCode, safeLanguage);
+
+                userApproachesRepository.save(userApproaches);
+
+                System.out.println("✓ Updated approach: " + approachId);
+
+                return new ApproachDetailDTO(approach, userId, userApproaches.getUserName());
+
+            } catch (OptimisticLockingFailureException e) {
+                attempt++;
+                if (attempt >= MAX_RETRY_ATTEMPTS) {
+                    throw new ConcurrentModificationException();
+                }
+                try {
+                    Thread.sleep(100 * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new ConcurrentModificationException();
+                }
+            }
         }
-        if (!approach.getQuestionId().equals(questionId)) {
-            throw new RuntimeException("Approach does not belong to this question");
-        }
 
-        // Update approach (validates size limits)
-        userApproaches.updateApproach(
-            approachId, 
-            dto.getTextContent(), 
-            dto.getCodeContent(), 
-            dto.getCodeLanguage()
-        );
-
-        // Save document
-        userApproachesRepository.save(userApproaches);
-
-        System.out.println("✓ Updated approach: " + approachId);
-
-        return new ApproachDetailDTO(approach, userId, userApproaches.getUserName());
+        throw new ConcurrentModificationException();
     }
 
-    /**
-     * DELETE /api/approaches/question/{questionId}/{approachId}
-     * Delete CURRENT USER's approach
-     */
     public void deleteApproach(String userId, String questionId, String approachId) {
-        UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("No approaches found"));
+        int attempt = 0;
+        while (attempt < MAX_RETRY_ATTEMPTS) {
+            try {
+                UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
+                        .orElseThrow(() -> new RuntimeException("No approaches found"));
 
-        // Verify approach exists and belongs to question
-        ApproachData approach = userApproaches.findApproachById(approachId);
-        if (approach == null) {
-            throw new RuntimeException("Approach not found");
-        }
-        if (!approach.getQuestionId().equals(questionId)) {
-            throw new RuntimeException("Approach does not belong to this question");
+                ApproachData approach = userApproaches.findApproachById(approachId);
+                if (approach == null) {
+                    throw new RuntimeException("Approach not found");
+                }
+                if (!approach.getQuestionId().equals(questionId)) {
+                    throw new RuntimeException("Approach does not belong to this question");
+                }
+
+                userApproaches.removeApproach(questionId, approachId);
+
+                if (userApproaches.getTotalApproaches() == 0) {
+                    userApproachesRepository.delete(userApproaches);
+                    System.out.println("✓ Deleted approach and removed empty document: " + approachId);
+                } else {
+                    userApproachesRepository.save(userApproaches);
+                    System.out.println("✓ Deleted approach: " + approachId);
+                }
+
+                return;
+
+            } catch (OptimisticLockingFailureException e) {
+                attempt++;
+                if (attempt >= MAX_RETRY_ATTEMPTS) {
+                    throw new ConcurrentModificationException();
+                }
+                try {
+                    Thread.sleep(100 * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new ConcurrentModificationException();
+                }
+            }
         }
 
-        // Remove approach
-        userApproaches.removeApproach(questionId, approachId);
-
-        // Save document (or delete if empty)
-        if (userApproaches.getTotalApproaches() == 0) {
-            userApproachesRepository.delete(userApproaches);
-            System.out.println("✓ Deleted approach and removed empty document: " + approachId);
-        } else {
-            userApproachesRepository.save(userApproaches);
-            System.out.println("✓ Deleted approach: " + approachId);
-        }
+        throw new ConcurrentModificationException();
     }
 
-    /**
-     * GET /api/approaches/my-approaches
-     * Get all approaches by CURRENT USER (for profile page)
-     */
     public List<ApproachMetadataDTO> getMyAllApproaches(String userId) {
         UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
                 .orElse(null);
@@ -179,10 +243,6 @@ public class ApproachService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Get size/count usage for CURRENT USER on a specific question
-     * Used to show remaining space in UI
-     */
     public Map<String, Object> getMyQuestionUsage(String userId, String questionId) {
         UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
                 .orElse(null);
@@ -215,25 +275,19 @@ public class ApproachService {
         return usage;
     }
 
-    /**
-     * Admin: Delete all approaches for a question (when question is deleted)
-     * This is the ONLY admin function needed
-     */
     public void deleteAllApproachesForQuestion(String questionId) {
         List<UserApproaches> allUsers = userApproachesRepository.findAll();
-        
+
         int deletedCount = 0;
         for (UserApproaches userApproaches : allUsers) {
             List<ApproachData> approaches = userApproaches.getApproachesForQuestion(questionId);
-            
+
             if (!approaches.isEmpty()) {
-                // Remove all approaches for this question
                 for (ApproachData approach : new ArrayList<>(approaches)) {
                     userApproaches.removeApproach(questionId, approach.getId());
                     deletedCount++;
                 }
-                
-                // Save or delete document
+
                 if (userApproaches.getTotalApproaches() == 0) {
                     userApproachesRepository.delete(userApproaches);
                 } else {
@@ -241,7 +295,7 @@ public class ApproachService {
                 }
             }
         }
-        
+
         System.out.println("✓ Deleted " + deletedCount + " approaches for question: " + questionId);
     }
 }
