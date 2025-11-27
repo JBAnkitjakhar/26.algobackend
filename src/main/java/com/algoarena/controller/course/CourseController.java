@@ -27,16 +27,38 @@ public class CourseController {
     @Autowired
     private CourseDocService docService;
 
-    // ==================== PUBLIC ENDPOINTS (User can read) ====================
+    // ==================== PUBLIC ENDPOINTS ====================
 
     /**
-     * API 1: Get all topics with document count
+     * Get PUBLIC topics only (for regular users)
      * GET /api/courses/topics
-     * 
-     * Returns: List of topics with how many docs in each topic
-     * Used in: Course topics listing page
      */
     @GetMapping("/topics")
+    public ResponseEntity<Map<String, Object>> getPublicTopics() {
+        try {
+            List<CourseTopicDTO> topics = topicService.getPublicTopicsWithDocCount();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", topics);
+            response.put("count", topics.size());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to fetch topics");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+
+    /**
+     * Get ALL topics (admin only)
+     * GET /api/courses/topics/all
+     */
+    @GetMapping("/topics/all")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
     public ResponseEntity<Map<String, Object>> getAllTopics() {
         try {
             List<CourseTopicDTO> topics = topicService.getAllTopicsWithDocCount();
@@ -57,19 +79,13 @@ public class CourseController {
     }
 
     /**
-     * API 2: Get all documents for a specific topic (WITHOUT full content)
+     * Get documents by topic (WITHOUT content)
      * GET /api/courses/topics/{topicId}/docs
-     * 
-     * Returns: List of documents with title and metadata ONLY (no content blocks)
-     * Used in: Topic's document listing page
      */
     @GetMapping("/topics/{topicId}/docs")
     public ResponseEntity<Map<String, Object>> getDocsByTopic(@PathVariable String topicId) {
         try {
-            // Get topic info
             CourseTopicDTO topic = topicService.getTopicById(topicId);
-            
-            // Get docs WITHOUT content (optimized for listing)
             List<CourseDocDTO> docs = docService.getDocsByTopic(topicId);
             
             Map<String, Object> response = new HashMap<>();
@@ -95,11 +111,8 @@ public class CourseController {
     }
 
     /**
-     * API 3: Get single document WITH full content
+     * Get single document WITH content
      * GET /api/courses/docs/{docId}
-     * 
-     * Returns: Complete document with all content blocks (text, images, code)
-     * Used in: Document reading page
      */
     @GetMapping("/docs/{docId}")
     public ResponseEntity<Map<String, Object>> getDocById(@PathVariable String docId) {
@@ -158,7 +171,7 @@ public class CourseController {
     // ==================== ADMIN ENDPOINTS ====================
 
     /**
-     * Create new topic (Admin only)
+     * Create new topic
      * POST /api/courses/topics
      */
     @PostMapping("/topics")
@@ -192,7 +205,7 @@ public class CourseController {
     }
 
     /**
-     * Update topic (Admin only)
+     * Update topic
      * PUT /api/courses/topics/{topicId}
      */
     @PutMapping("/topics/{topicId}")
@@ -227,7 +240,38 @@ public class CourseController {
     }
 
     /**
-     * Delete topic (Admin only)
+     * Toggle topic public/private
+     * PATCH /api/courses/topics/{topicId}/visibility
+     */
+    @PatchMapping("/topics/{topicId}/visibility")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<Map<String, Object>> toggleTopicVisibility(@PathVariable String topicId) {
+        try {
+            CourseTopicDTO updatedTopic = topicService.toggleTopicVisibility(topicId);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", updatedTopic);
+            response.put("message", "Topic visibility toggled successfully");
+            
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to toggle visibility");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(400).body(errorResponse);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to toggle visibility");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+
+    /**
+     * Delete topic
      * DELETE /api/courses/topics/{topicId}
      */
     @DeleteMapping("/topics/{topicId}")
@@ -257,7 +301,7 @@ public class CourseController {
     }
 
     /**
-     * Create new document (Admin only)
+     * Create new document
      * POST /api/courses/docs
      */
     @PostMapping("/docs")
@@ -291,7 +335,7 @@ public class CourseController {
     }
 
     /**
-     * Update document (Admin only)
+     * Update document
      * PUT /api/courses/docs/{docId}
      */
     @PutMapping("/docs/{docId}")
@@ -326,7 +370,7 @@ public class CourseController {
     }
 
     /**
-     * Delete document (Admin only)
+     * Delete document
      * DELETE /api/courses/docs/{docId}
      */
     @DeleteMapping("/docs/{docId}")
@@ -354,8 +398,6 @@ public class CourseController {
             return ResponseEntity.status(500).body(errorResponse);
         }
     }
-
-    // ==================== STATISTICS ENDPOINTS ====================
 
     /**
      * Get course statistics

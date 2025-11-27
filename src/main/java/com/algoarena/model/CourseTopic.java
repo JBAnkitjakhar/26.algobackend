@@ -2,8 +2,8 @@
 package com.algoarena.model;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
@@ -15,32 +15,40 @@ public class CourseTopic {
     private String id;
 
     @Indexed(unique = true)
-    private String name; // React, Java, DBMS, etc.
+    private String name;
     
     private String description;
-    
-    // Display order in the UI
     private Integer displayOrder;
+    private String iconUrl;
     
-    private String iconUrl; // Optional icon/image for the topic
+    // NEW: Public/Private functionality
+    private Boolean isPublic = true; // Default public
     
-    @DBRef
-    private User createdBy;
+    // CHANGED: Direct creator info (no DBRef)
+    private String createdById;
+    private String createdByName;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    @Version // For optimistic locking
+    private Long version;
 
     // Constructors
     public CourseTopic() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        this.isPublic = true;
     }
 
     public CourseTopic(String name, String description, User createdBy) {
         this();
         this.name = name;
         this.description = description;
-        this.createdBy = createdBy;
+        if (createdBy != null) {
+            this.createdById = createdBy.getId();
+            this.createdByName = createdBy.getName();
+        }
     }
 
     // Getters and Setters
@@ -88,12 +96,29 @@ public class CourseTopic {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public User getCreatedBy() {
-        return createdBy;
+    public Boolean getIsPublic() {
+        return isPublic;
     }
 
-    public void setCreatedBy(User createdBy) {
-        this.createdBy = createdBy;
+    public void setIsPublic(Boolean isPublic) {
+        this.isPublic = isPublic;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public String getCreatedById() {
+        return createdById;
+    }
+
+    public void setCreatedById(String createdById) {
+        this.createdById = createdById;
+    }
+
+    public String getCreatedByName() {
+        return createdByName;
+    }
+
+    public void setCreatedByName(String createdByName) {
+        this.createdByName = createdByName;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -112,11 +137,20 @@ public class CourseTopic {
         this.updatedAt = updatedAt;
     }
 
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
     @Override
     public String toString() {
         return "CourseTopic{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
+                ", isPublic=" + isPublic +
                 ", displayOrder=" + displayOrder +
                 '}';
     }

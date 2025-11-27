@@ -20,14 +20,15 @@ public class CourseTopicDTO {
 
     private Integer displayOrder;
     private String iconUrl;
-    private Long docsCount; // Number of docs in this topic
+    private Boolean isPublic; // NEW
+    private Long docsCount;
     
     private String createdByName;
     private String createdById;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long version; // For optimistic locking
 
-    // Constructors
     public CourseTopicDTO() {}
 
     public CourseTopicDTO(CourseTopic topic) {
@@ -36,95 +37,52 @@ public class CourseTopicDTO {
         this.description = topic.getDescription();
         this.displayOrder = topic.getDisplayOrder();
         this.iconUrl = topic.getIconUrl();
-        this.createdByName = topic.getCreatedBy() != null ? topic.getCreatedBy().getName() : null;
-        this.createdById = topic.getCreatedBy() != null ? topic.getCreatedBy().getId() : null;
+        this.isPublic = topic.getIsPublic();
+        this.createdByName = topic.getCreatedByName();
+        this.createdById = topic.getCreatedById();
         this.createdAt = topic.getCreatedAt();
         this.updatedAt = topic.getUpdatedAt();
+        this.version = topic.getVersion();
     }
 
-    // Static factory method
     public static CourseTopicDTO fromEntity(CourseTopic topic) {
         return new CourseTopicDTO(topic);
     }
 
     // Getters and Setters
-    public String getId() {
-        return id;
-    }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public void setId(String id) {
-        this.id = id;
-    }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
 
-    public String getName() {
-        return name;
-    }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 
-    public void setName(String name) {
-        this.name = name;
-    }
+    public Integer getDisplayOrder() { return displayOrder; }
+    public void setDisplayOrder(Integer displayOrder) { this.displayOrder = displayOrder; }
 
-    public String getDescription() {
-        return description;
-    }
+    public String getIconUrl() { return iconUrl; }
+    public void setIconUrl(String iconUrl) { this.iconUrl = iconUrl; }
 
-    public void setDescription(String description) {
-        this.description = description;
-    }
+    public Boolean getIsPublic() { return isPublic; }
+    public void setIsPublic(Boolean isPublic) { this.isPublic = isPublic; }
 
-    public Integer getDisplayOrder() {
-        return displayOrder;
-    }
+    public Long getDocsCount() { return docsCount; }
+    public void setDocsCount(Long docsCount) { this.docsCount = docsCount; }
 
-    public void setDisplayOrder(Integer displayOrder) {
-        this.displayOrder = displayOrder;
-    }
+    public String getCreatedByName() { return createdByName; }
+    public void setCreatedByName(String createdByName) { this.createdByName = createdByName; }
 
-    public String getIconUrl() {
-        return iconUrl;
-    }
+    public String getCreatedById() { return createdById; }
+    public void setCreatedById(String createdById) { this.createdById = createdById; }
 
-    public void setIconUrl(String iconUrl) {
-        this.iconUrl = iconUrl;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public Long getDocsCount() {
-        return docsCount;
-    }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
-    public void setDocsCount(Long docsCount) {
-        this.docsCount = docsCount;
-    }
-
-    public String getCreatedByName() {
-        return createdByName;
-    }
-
-    public void setCreatedByName(String createdByName) {
-        this.createdByName = createdByName;
-    }
-
-    public String getCreatedById() {
-        return createdById;
-    }
-
-    public void setCreatedById(String createdById) {
-        this.createdById = createdById;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 }

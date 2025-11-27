@@ -58,12 +58,19 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         // ========================================
         // AUTH ENDPOINTS (20/min)
         // ========================================
-
-        // NEW: Auth endpoints (refresh, me, etc.)
         if (requestURI.startsWith("/api/auth/me") ||
                 requestURI.startsWith("/api/auth/refresh")) {
             return rateLimitConfig.resolveAuthBucket(userId);
         }
+
+        // ========================================
+        // COURSE ENDPOINTS (30/min) - NEW
+        // ========================================
+        // Course read endpoints: topics, docs
+        if (method.equals("GET") && requestURI.startsWith("/api/courses")) {
+            return rateLimitConfig.resolveCourseReadBucket(userId);
+        }
+
         // ========================================
         // SPECIFIC READ ENDPOINTS (30/min each)
         // ========================================
@@ -75,18 +82,18 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             return rateLimitConfig.resolveQuestionReadBucket(userId);
         }
 
-        // NEW: Category read endpoints (30/min)
+        // Category read endpoints
         if (method.equals("GET") && requestURI.startsWith("/api/categories")) {
             return rateLimitConfig.resolveCategoryReadBucket(userId);
         }
 
-        // NEW: Solution read endpoints (30/min)
+        // Solution read endpoints
         if (method.equals("GET") && requestURI.startsWith("/api/solutions")) {
             return rateLimitConfig.resolveSolutionReadBucket(userId);
         }
 
         // ========================================
-        // APPROACH ENDPOINTS (Existing)
+        // APPROACH ENDPOINTS
         // ========================================
 
         // Approach write endpoints (5/min)
@@ -103,10 +110,6 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         // ========================================
         // USER MARK/UNMARK OPERATIONS (10/min)
         // ========================================
-
-        // User mark/unmark endpoints - these are POST/DELETE operations
-        // Examples: POST /api/user/me/mark/{questionId}, DELETE
-        // /api/user/me/unmark/{questionId}
         if ((method.equals("POST") || method.equals("DELETE")) &&
                 requestURI.contains("/api/user/me/")) {
             return rateLimitConfig.resolveWriteBucket(userId);
@@ -116,12 +119,12 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         // GENERIC FALLBACKS
         // ========================================
 
-        // Generic write endpoints (10/min) - POST, PUT, DELETE
+        // Generic write endpoints (10/min)
         if (method.equals("POST") || method.equals("PUT") || method.equals("DELETE")) {
             return rateLimitConfig.resolveWriteBucket(userId);
         }
 
-        // Generic read endpoints (60/min) - GET
+        // Generic read endpoints (60/min)
         if (method.equals("GET")) {
             return rateLimitConfig.resolveReadBucket(userId);
         }

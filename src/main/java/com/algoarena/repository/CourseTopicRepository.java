@@ -11,21 +11,16 @@ import java.util.Optional;
 @Repository
 public interface CourseTopicRepository extends MongoRepository<CourseTopic, String> {
 
-    // Spring Data MongoDB will automatically implement case-insensitive search
-    // Just use the naming convention - no @Query needed!
     Optional<CourseTopic> findByNameIgnoreCase(String name);
-    
     boolean existsByNameIgnoreCase(String name);
 
-    // Find all topics ordered by display order
+    // NEW: Public topics only
+    List<CourseTopic> findByIsPublicTrueOrderByDisplayOrderAsc();
+    
+    // All topics (admin)
     List<CourseTopic> findAllByOrderByDisplayOrderAsc();
-
-    // Find all topics ordered by creation date
     List<CourseTopic> findAllByOrderByCreatedAtDesc();
 
-    // Find topics by creator
-    List<CourseTopic> findByCreatedBy_Id(String createdById);
-
-    // Count total topics
+    List<CourseTopic> findByCreatedById(String createdById);
     long count();
 }

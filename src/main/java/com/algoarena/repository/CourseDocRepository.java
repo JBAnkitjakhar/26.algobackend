@@ -11,25 +11,13 @@ import java.util.Optional;
 @Repository
 public interface CourseDocRepository extends MongoRepository<CourseDoc, String> {
 
-    // Find all documents in a topic (ordered by display order)
-    List<CourseDoc> findByTopic_IdOrderByDisplayOrderAsc(String topicId);
+    List<CourseDoc> findByTopicIdOrderByDisplayOrderAsc(String topicId);
+    List<CourseDoc> findByTopicIdOrderByCreatedAtDesc(String topicId);
 
-    // Find all documents in a topic (ordered by creation date)
-    List<CourseDoc> findByTopic_IdOrderByCreatedAtDesc(String topicId);
+    Optional<CourseDoc> findByTitleIgnoreCaseAndTopicId(String title, String topicId);
+    boolean existsByTitleIgnoreCaseAndTopicId(String title, String topicId);
 
-    // Find document by title and topic (case-insensitive)
-    // Spring Data MongoDB handles this automatically
-    Optional<CourseDoc> findByTitleIgnoreCaseAndTopic_Id(String title, String topicId);
-
-    // Check if document title exists in topic (case-insensitive)
-    boolean existsByTitleIgnoreCaseAndTopic_Id(String title, String topicId);
-
-    // Count documents in a topic
-    long countByTopic_Id(String topicId);
-
-    // Find documents by creator
-    List<CourseDoc> findByCreatedBy_Id(String createdById);
-
-    // Count total documents
+    long countByTopicId(String topicId);
+    List<CourseDoc> findByCreatedById(String createdById);
     long count();
 }

@@ -17,12 +17,27 @@ public class WebConfig implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(rateLimitInterceptor)
                 .addPathPatterns(
-                        "/api/questions/**", // Question endpoints (30/min read)
-                        "/api/categories/**", // NEW: Category endpoints (30/min read)
-                        "/api/solutions/**", // NEW: Solution endpoints (30/min read)
-                        "/api/approaches/**", // Approach endpoints (5/min write, 20/min read)
-                        "/api/user/me/**", // User endpoints (10/min for mark/unmark)
-                        "/api/auth/me", // NEW
+                        "/api/courses/**",      // NEW: Course endpoints (30/min read)
+                        "/api/questions/**",    // Question endpoints (30/min read)
+                        "/api/categories/**",   // Category endpoints (30/min read)
+                        "/api/solutions/**",    // Solution endpoints (30/min read)
+                        "/api/approaches/**",   // Approach endpoints (5/min write, 20/min read)
+                        "/api/user/me/**",      // User endpoints (10/min for mark/unmark)
+                        "/api/auth/me",         // Auth endpoints (20/min)
                         "/api/auth/refresh");
     }
 }
+// ```
+
+// ---
+
+// ## 📊 How Rate Limiting Works Behind the Scenes
+
+// ### **Token Bucket Algorithm** (Bucket4j Implementation)
+// ```
+// USER1's Bucket (in RAM)          USER2's Bucket (in RAM)
+// ┌─────────────────┐              ┌─────────────────┐
+// │ Capacity: 30    │              │ Capacity: 30    │
+// │ Tokens: 28 🪙   │              │ Tokens: 30 🪙   │
+// │ Refill: 30/min  │              │ Refill: 30/min  │
+// └─────────────────┘              └─────────────────┘

@@ -2,8 +2,9 @@
 package com.algoarena.model;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.DBRef;
+import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -16,31 +17,25 @@ public class CourseDoc {
 
     private String title;
     
-    @DBRef
-    private CourseTopic topic;
+    // INDEXED: For fast topic-based queries
+    @Indexed
+    private String topicId;
     
-    // SIMPLE: Rich HTML content from frontend editor (TipTap, Quill, etc.)
-    // Includes all formatting, images, code blocks, etc.
     private String content;
-    
-    // Track image URLs for cleanup when document is deleted
-    // Frontend sends these after uploading to Cloudinary
     private List<String> imageUrls;
-    
-    // Display order within the topic
     private Integer displayOrder;
-    
-    // Total size in bytes (content + metadata)
     private Long totalSize;
     
-    // Maximum size: 5MB
     private static final Long MAX_SIZE = 5 * 1024 * 1024L; // 5MB
     
-    @DBRef
-    private User createdBy;
+    private String createdById;
+    private String createdByName;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    
+    @Version
+    private Long version;
 
     // Constructors
     public CourseDoc() {
@@ -49,14 +44,17 @@ public class CourseDoc {
         this.totalSize = 0L;
     }
 
-    public CourseDoc(String title, CourseTopic topic, User createdBy) {
+    public CourseDoc(String title, String topicId, User createdBy) {
         this();
         this.title = title;
-        this.topic = topic;
-        this.createdBy = createdBy;
+        this.topicId = topicId;
+        if (createdBy != null) {
+            this.createdById = createdBy.getId();
+            this.createdByName = createdBy.getName();
+        }
     }
 
-    // Getters and Setters
+    // Getters and Setters (same as before)
     public String getId() {
         return id;
     }
@@ -74,12 +72,12 @@ public class CourseDoc {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public CourseTopic getTopic() {
-        return topic;
+    public String getTopicId() {
+        return topicId;
     }
 
-    public void setTopic(CourseTopic topic) {
-        this.topic = topic;
+    public void setTopicId(String topicId) {
+        this.topicId = topicId;
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -123,12 +121,20 @@ public class CourseDoc {
         return MAX_SIZE;
     }
 
-    public User getCreatedBy() {
-        return createdBy;
+    public String getCreatedById() {
+        return createdById;
     }
 
-    public void setCreatedBy(User createdBy) {
-        this.createdBy = createdBy;
+    public void setCreatedById(String createdById) {
+        this.createdById = createdById;
+    }
+
+    public String getCreatedByName() {
+        return createdByName;
+    }
+
+    public void setCreatedByName(String createdByName) {
+        this.createdByName = createdByName;
     }
 
     public LocalDateTime getCreatedAt() {
@@ -147,7 +153,14 @@ public class CourseDoc {
         this.updatedAt = updatedAt;
     }
 
-    // Helper method to check if size limit is exceeded
+    public Long getVersion() {
+        return version;
+    }
+
+    public void setVersion(Long version) {
+        this.version = version;
+    }
+
     public boolean exceedsSizeLimit() {
         return this.totalSize != null && this.totalSize > MAX_SIZE;
     }
@@ -157,7 +170,7 @@ public class CourseDoc {
         return "CourseDoc{" +
                 "id='" + id + '\'' +
                 ", title='" + title + '\'' +
-                ", topic=" + (topic != null ? topic.getName() : "null") +
+                ", topicId='" + topicId + '\'' +
                 ", totalSize=" + totalSize +
                 '}';
     }
