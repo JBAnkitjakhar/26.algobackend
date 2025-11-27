@@ -1,13 +1,10 @@
 // src/main/java/com/algoarena/controller/dsa/ApproachController.java
 package com.algoarena.controller.dsa;
 
-import com.algoarena.config.RateLimitConfig;
 import com.algoarena.dto.dsa.ApproachDetailDTO;
 import com.algoarena.dto.dsa.ApproachMetadataDTO;
-import com.algoarena.exception.RateLimitExceededException;
 import com.algoarena.model.User;
 import com.algoarena.service.dsa.ApproachService;
-import io.github.bucket4j.Bucket;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,9 +23,6 @@ public class ApproachController {
     @Autowired
     private ApproachService approachService;
 
-    @Autowired
-    private RateLimitConfig rateLimitConfig;
-
     @GetMapping("/question/{questionId}")
     public ResponseEntity<List<ApproachMetadataDTO>> getMyApproachesForQuestion(
             @PathVariable String questionId,
@@ -36,11 +30,7 @@ public class ApproachController {
     ) {
         User currentUser = (User) authentication.getPrincipal();
         
-        Bucket bucket = rateLimitConfig.resolveApproachReadBucket(currentUser.getId());
-        if (!bucket.tryConsume(1)) {
-            throw new RateLimitExceededException();
-        }
-
+        // Rate limiting is handled by RateLimitInterceptor automatically!
         List<ApproachMetadataDTO> approaches = approachService.getMyApproachesForQuestion(
             currentUser.getId(), 
             questionId
@@ -55,11 +45,6 @@ public class ApproachController {
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
-        
-        Bucket bucket = rateLimitConfig.resolveApproachReadBucket(currentUser.getId());
-        if (!bucket.tryConsume(1)) {
-            throw new RateLimitExceededException();
-        }
 
         try {
             ApproachDetailDTO approach = approachService.getMyApproachDetail(
@@ -80,11 +65,6 @@ public class ApproachController {
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
-        
-        Bucket bucket = rateLimitConfig.resolveApproachWriteBucket(currentUser.getId());
-        if (!bucket.tryConsume(1)) {
-            throw new RateLimitExceededException();
-        }
 
         try {
             ApproachDetailDTO created = approachService.createApproach(
@@ -118,11 +98,6 @@ public class ApproachController {
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
-        
-        Bucket bucket = rateLimitConfig.resolveApproachWriteBucket(currentUser.getId());
-        if (!bucket.tryConsume(1)) {
-            throw new RateLimitExceededException();
-        }
 
         try {
             ApproachDetailDTO updated = approachService.updateApproach(
@@ -155,11 +130,6 @@ public class ApproachController {
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
-        
-        Bucket bucket = rateLimitConfig.resolveApproachWriteBucket(currentUser.getId());
-        if (!bucket.tryConsume(1)) {
-            throw new RateLimitExceededException();
-        }
 
         try {
             approachService.deleteApproach(currentUser.getId(), questionId, approachId);
@@ -185,11 +155,6 @@ public class ApproachController {
             Authentication authentication
     ) {
         User currentUser = (User) authentication.getPrincipal();
-        
-        Bucket bucket = rateLimitConfig.resolveApproachReadBucket(currentUser.getId());
-        if (!bucket.tryConsume(1)) {
-            throw new RateLimitExceededException();
-        }
 
         Map<String, Object> usage = approachService.getMyQuestionUsage(
             currentUser.getId(), 

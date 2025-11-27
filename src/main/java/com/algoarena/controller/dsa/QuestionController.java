@@ -7,14 +7,11 @@ import com.algoarena.model.User;
 import com.algoarena.service.dsa.QuestionService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -24,16 +21,9 @@ public class QuestionController {
     @Autowired
     private QuestionService questionService;
 
-    @GetMapping
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Page<QuestionDTO>> getAllQuestions(
-            Pageable pageable,
-            @RequestParam(required = false) String categoryId,
-            @RequestParam(required = false) String level,
-            @RequestParam(required = false) String search) {
-        Page<QuestionDTO> questions = questionService.getAllQuestions(pageable, categoryId, level, search);
-        return ResponseEntity.ok(questions);
-    }
+    // ============================================
+    // ADMIN ENDPOINTS
+    // ============================================
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
@@ -69,27 +59,30 @@ public class QuestionController {
         }
     }
 
-    @GetMapping("/search")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<QuestionDTO>> searchQuestions(@RequestParam String q) {
-        List<QuestionDTO> questions = questionService.searchQuestions(q);
-        return ResponseEntity.ok(questions);
-    }
+    // ============================================
+    // USER ENDPOINTS (Rate Limited: 30/min)
+    // ============================================
 
-    @GetMapping("/stats")
+    /**
+     * Get complete question details for authenticated users
+     * Rate limited: 30 requests per minute per user
+     * Globally cached for all users
+     */
+    @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Map<String, Object>> getQuestionStats() {
-        Map<String, Object> stats = questionService.getQuestionCounts();
-        return ResponseEntity.ok(stats);
+    public ResponseEntity<QuestionDTO> getQuestionById(@PathVariable String id) {
+        try {
+            QuestionDTO question = questionService.getQuestionById(id);
+            return ResponseEntity.ok(question);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /**
-     * NEW ENDPOINT: Get questions metadata (lightweight)
-     * Contains question ID, title, level, and category name for all questions
-     * Used for dropdowns and displaying titles in admin section
-     * MOVED FROM: /api/user/questions/metadata to /api/questions/metadata
-     * 
-     * @return QuestionsMetadataDTO with all questions metadata
+     * Get questions metadata (lightweight)
+     * Rate limited: 30 requests per minute per user
+     * Contains question ID, title, level, and categoryId for all questions
      */
     @GetMapping("/metadata")
     @PreAuthorize("isAuthenticated()")
@@ -97,5 +90,4 @@ public class QuestionController {
         QuestionsMetadataDTO metadata = questionService.getQuestionsMetadata();
         return ResponseEntity.ok(metadata);
     }
- 
 }

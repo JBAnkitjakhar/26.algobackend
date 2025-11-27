@@ -68,15 +68,6 @@ public class AdminOverviewDTO {
         public void setDatabaseStatus(String databaseStatus) {
             this.databaseStatus = databaseStatus;
         }
-        
-        // ❌ REMOVED: Version getter/setter
-        // public String getAppVersion() {
-        //     return appVersion;
-        // }
-        // 
-        // public void setAppVersion(String appVersion) {
-        //     this.appVersion = appVersion;
-        // }
     }
     
     // Constructors

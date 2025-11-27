@@ -2,8 +2,8 @@
 package com.algoarena.model;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.index.Indexed;
 
 import java.time.LocalDateTime;
@@ -15,39 +15,38 @@ public class Question {
     @Id
     private String id;
 
+    @Version // For optimistic locking and thread safety
+    private Long version;
+
     private String title;
     private String statement;
     
-    // Image URLs for question explanation
     private List<String> imageUrls;
-    
-    // Keep for backward compatibility (will be migrated to imageUrls)
-    private String imageFolderUrl;
+    private String imageFolderUrl; // Backward compatibility
     
     private List<CodeSnippet> codeSnippets;
 
-    @DBRef
-    private Category category;
+    // ISOLATED: Only store categoryId, not the full category object
+    @Indexed
+    private String categoryId;
 
     private QuestionLevel level;
     
-    // NEW: Display order 
     private Integer displayOrder;
 
-    @DBRef
-    private User createdBy;
+    // ISOLATED: Store creator info directly, not DBRef
+    private String createdById;
+    private String createdByName;
 
     @Indexed(name = "createdAt_idx")
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Inner class for code snippets
     public static class CodeSnippet {
         private String language;
         private String code;
         private String description;
 
-        // Constructors
         public CodeSnippet() {}
 
         public CodeSnippet(String language, String code, String description) {
@@ -56,7 +55,6 @@ public class Question {
             this.description = description;
         }
 
-        // Getters and Setters
         public String getLanguage() { return language; }
         public void setLanguage(String language) { this.language = language; }
         public String getCode() { return code; }
@@ -65,135 +63,86 @@ public class Question {
         public void setDescription(String description) { this.description = description; }
     }
 
-    // Constructors
     public Question() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Question(String title, String statement, Category category, QuestionLevel level, User createdBy) {
-        this();
-        this.title = title;
-        this.statement = statement;
-        this.category = category;
-        this.level = level;
-        this.createdBy = createdBy;
-    }
-
     // Getters and Setters
-    public String getId() {
-        return id;
-    }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public void setId(String id) {
-        this.id = id;
-    }
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 
-    public String getTitle() {
-        return title;
-    }
-
+    public String getTitle() { return title; }
     public void setTitle(String title) {
         this.title = title;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public String getStatement() {
-        return statement;
-    }
-
+    public String getStatement() { return statement; }
     public void setStatement(String statement) {
         this.statement = statement;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public List<String> getImageUrls() {
-        return imageUrls;
-    }
-
+    public List<String> getImageUrls() { return imageUrls; }
     public void setImageUrls(List<String> imageUrls) {
         this.imageUrls = imageUrls;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public String getImageFolderUrl() {
-        return imageFolderUrl;
-    }
-
+    public String getImageFolderUrl() { return imageFolderUrl; }
     public void setImageFolderUrl(String imageFolderUrl) {
         this.imageFolderUrl = imageFolderUrl;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public List<CodeSnippet> getCodeSnippets() {
-        return codeSnippets;
-    }
-
+    public List<CodeSnippet> getCodeSnippets() { return codeSnippets; }
     public void setCodeSnippets(List<CodeSnippet> codeSnippets) {
         this.codeSnippets = codeSnippets;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public Category getCategory() {
-        return category;
-    }
-
-    public void setCategory(Category category) {
-        this.category = category;
+    public String getCategoryId() { return categoryId; }
+    public void setCategoryId(String categoryId) {
+        this.categoryId = categoryId;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public QuestionLevel getLevel() {
-        return level;
-    }
-
+    public QuestionLevel getLevel() { return level; }
     public void setLevel(QuestionLevel level) {
         this.level = level;
         this.updatedAt = LocalDateTime.now();
     }
     
-    // NEW: Getter and Setter for displayOrder
-    public Integer getDisplayOrder() {
-        return displayOrder;
-    }
-    
+    public Integer getDisplayOrder() { return displayOrder; }
     public void setDisplayOrder(Integer displayOrder) {
         this.displayOrder = displayOrder;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public User getCreatedBy() {
-        return createdBy;
-    }
+    public String getCreatedById() { return createdById; }
+    public void setCreatedById(String createdById) { this.createdById = createdById; }
 
-    public void setCreatedBy(User createdBy) {
-        this.createdBy = createdBy;
-    }
+    public String getCreatedByName() { return createdByName; }
+    public void setCreatedByName(String createdByName) { this.createdByName = createdByName; }
 
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
-    }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
     @Override
     public String toString() {
         return "Question{" +
                 "id='" + id + '\'' +
                 ", title='" + title + '\'' +
+                ", categoryId='" + categoryId + '\'' +
                 ", level=" + level +
-                ", displayOrder=" + displayOrder +
-                ", category=" + (category != null ? category.getName() : "null") +
+                ", version=" + version +
                 '}';
     }
 }

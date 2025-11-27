@@ -13,6 +13,7 @@ import java.util.List;
 public class QuestionDTO {
 
     private String id;
+    private Long version;
 
     @NotBlank(message = "Title is required")
     @Size(min = 5, max = 200, message = "Title must be between 5 and 200 characters")
@@ -22,36 +23,29 @@ public class QuestionDTO {
     @Size(min = 20, max = 10000, message = "Statement must be between 20 and 10000 characters")
     private String statement;
 
-    // NEW: Image URLs for question explanation
     private List<String> imageUrls;
-
-    // Keep for backward compatibility
     private String imageFolderUrl;
-
     private List<CodeSnippetDTO> codeSnippets;
 
     @NotNull(message = "Category is required")
-    private String categoryId;
-    private String categoryName;
+    private String categoryId; // ONLY ID - frontend maps to name
 
     @NotNull(message = "Level is required")
     private QuestionLevel level;
     
-    // NEW: Display order field
     private Integer displayOrder;
 
     private String createdByName;
     private String createdById;
+    
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // Inner DTO class for code snippets
     public static class CodeSnippetDTO {
         private String language;
         private String code;
         private String description;
 
-        // Constructors
         public CodeSnippetDTO() {}
 
         public CodeSnippetDTO(Question.CodeSnippet codeSnippet) {
@@ -60,7 +54,6 @@ public class QuestionDTO {
             this.description = codeSnippet.getDescription();
         }
 
-        // Getters and Setters
         public String getLanguage() { return language; }
         public void setLanguage(String language) { this.language = language; }
         public String getCode() { return code; }
@@ -69,34 +62,31 @@ public class QuestionDTO {
         public void setDescription(String description) { this.description = description; }
     }
 
-    // Constructors
     public QuestionDTO() {}
 
     public QuestionDTO(Question question) {
         this.id = question.getId();
+        this.version = question.getVersion();
         this.title = question.getTitle();
         this.statement = question.getStatement();
         this.imageUrls = question.getImageUrls();
         this.imageFolderUrl = question.getImageFolderUrl();
         
-        // Convert code snippets
         if (question.getCodeSnippets() != null) {
             this.codeSnippets = question.getCodeSnippets().stream()
                     .map(CodeSnippetDTO::new)
                     .toList();
         }
         
-        this.categoryId = question.getCategory() != null ? question.getCategory().getId() : null;
-        this.categoryName = question.getCategory() != null ? question.getCategory().getName() : null;
+        this.categoryId = question.getCategoryId();
         this.level = question.getLevel();
-        this.displayOrder = question.getDisplayOrder();  // NEW: Include display order
-        this.createdByName = question.getCreatedBy() != null ? question.getCreatedBy().getName() : null;
-        this.createdById = question.getCreatedBy() != null ? question.getCreatedBy().getId() : null;
+        this.displayOrder = question.getDisplayOrder();
+        this.createdByName = question.getCreatedByName();
+        this.createdById = question.getCreatedById();
         this.createdAt = question.getCreatedAt();
         this.updatedAt = question.getUpdatedAt();
     }
 
-    // Static factory method
     public static QuestionDTO fromEntity(Question question) {
         return new QuestionDTO(question);
     }
@@ -104,6 +94,9 @@ public class QuestionDTO {
     // Getters and Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
@@ -122,9 +115,6 @@ public class QuestionDTO {
 
     public String getCategoryId() { return categoryId; }
     public void setCategoryId(String categoryId) { this.categoryId = categoryId; }
-
-    public String getCategoryName() { return categoryName; }
-    public void setCategoryName(String categoryName) { this.categoryName = categoryName; }
 
     public QuestionLevel getLevel() { return level; }
     public void setLevel(QuestionLevel level) { this.level = level; }

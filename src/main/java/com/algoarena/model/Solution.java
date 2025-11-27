@@ -14,6 +14,7 @@ public class Solution {
     @Id
     private String id;
 
+    @Indexed(name = "questionId_idx")  // ADD THIS INDEX
     private String questionId;
 
     private String content;

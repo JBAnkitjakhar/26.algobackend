@@ -3,6 +3,7 @@ package com.algoarena.controller.admin;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import com.algoarena.dto.admin.AdminOverviewDTO;
 import com.algoarena.dto.admin.UserDTO;
 import com.algoarena.dto.dsa.AdminQuestionSummaryDTO;
@@ -10,10 +11,12 @@ import com.algoarena.dto.dsa.AdminSolutionSummaryDTO;
 import com.algoarena.dto.dsa.QuestionDTO;
 import com.algoarena.model.User;
 import com.algoarena.model.UserRole;
+ 
 import com.algoarena.service.admin.AdminOverviewService;
 import com.algoarena.service.admin.UserService;
 import com.algoarena.service.dsa.QuestionService;
 import com.algoarena.service.dsa.SolutionService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -132,12 +135,12 @@ public class AdminController {
         try {
             User currentUser = (User) authentication.getPrincipal();
             UserDTO updatedUser = userService.updateUserRole(userId, request.getRole(), currentUser);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "User role updated successfully");
             response.put("user", updatedUser);
-            
+
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             Map<String, Object> errorResponse = new HashMap<>();
@@ -147,11 +150,11 @@ public class AdminController {
             return ResponseEntity.status(403).body(errorResponse);
         }
     }
-    
+
     @GetMapping("/users/permissions")
     public ResponseEntity<Map<String, Object>> getRolePermissions() {
         Map<String, Object> permissions = new HashMap<>();
-        
+
         Map<String, Object> userPermissions = new HashMap<>();
         userPermissions.put("canCreateQuestions", false);
         userPermissions.put("canEditQuestions", false);
@@ -159,7 +162,7 @@ public class AdminController {
         userPermissions.put("canManageUsers", false);
         userPermissions.put("canChangeRoles", false);
         userPermissions.put("canAccessAdminPanel", false);
-        
+
         Map<String, Object> adminPermissions = new HashMap<>();
         adminPermissions.put("canCreateQuestions", true);
         adminPermissions.put("canEditQuestions", true);
@@ -167,7 +170,7 @@ public class AdminController {
         adminPermissions.put("canManageUsers", false);
         adminPermissions.put("canChangeRoles", false);
         adminPermissions.put("canAccessAdminPanel", true);
-        
+
         Map<String, Object> superAdminPermissions = new HashMap<>();
         superAdminPermissions.put("canCreateQuestions", true);
         superAdminPermissions.put("canEditQuestions", true);
@@ -176,22 +179,23 @@ public class AdminController {
         superAdminPermissions.put("canChangeRoles", true);
         superAdminPermissions.put("canAccessAdminPanel", true);
         superAdminPermissions.put("canManageSystemSettings", true);
-        
+
         permissions.put("USER", userPermissions);
         permissions.put("ADMIN", adminPermissions);
         permissions.put("SUPERADMIN", superAdminPermissions);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("permissions", permissions);
-        response.put("hierarchy", new String[]{"USER", "ADMIN", "SUPERADMIN", "PRIMARY_SUPERADMIN"});
-        
+        response.put("hierarchy", new String[] { "USER", "ADMIN", "SUPERADMIN", "PRIMARY_SUPERADMIN" });
+
         return ResponseEntity.ok(response);
     }
     public static class RoleUpdateRequest {
         private UserRole role;
 
-        public RoleUpdateRequest() {}
+        public RoleUpdateRequest() {
+        }
 
         public RoleUpdateRequest(UserRole role) {
             this.role = role;
@@ -206,4 +210,5 @@ public class AdminController {
         }
     }
 
+  
 }

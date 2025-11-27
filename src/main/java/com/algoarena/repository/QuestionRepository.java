@@ -15,75 +15,43 @@ import java.util.Optional;
 @Repository
 public interface QuestionRepository extends MongoRepository<Question, String> {
 
-    // Find questions by category
-    List<Question> findByCategory_Id(String categoryId);
-
-    // Find questions by category with pagination
-    Page<Question> findByCategory_Id(String categoryId, Pageable pageable);
-
-    // Find questions by difficulty level
+    // Using categoryId instead of category.id
+    List<Question> findByCategoryId(String categoryId);
+    Page<Question> findByCategoryId(String categoryId, Pageable pageable);
+    
     List<Question> findByLevel(QuestionLevel level);
+    List<Question> findByCategoryIdAndLevel(String categoryId, QuestionLevel level);
 
-    // Find questions by category and level
-    List<Question> findByCategory_IdAndLevel(String categoryId, QuestionLevel level);
-
-    // Search questions by title (case-insensitive)
     @Query("{ 'title': { $regex: ?0, $options: 'i' } }")
     List<Question> findByTitleContainingIgnoreCase(String title);
 
-    // Search questions by title or statement
-    @Query("{ $or: [ " +
-            "{ 'title': { $regex: ?0, $options: 'i' } }, " +
-            "{ 'statement': { $regex: ?0, $options: 'i' } } " +
-            "] }")
+    @Query("{ $or: [ { 'title': { $regex: ?0, $options: 'i' } }, { 'statement': { $regex: ?0, $options: 'i' } } ] }")
     List<Question> searchByTitleOrStatement(String searchTerm);
 
-    // Find questions by creator
-    List<Question> findByCreatedBy_Id(String createdById);
+    List<Question> findByCreatedById(String createdById);
 
-    // Count questions by category
-    long countByCategory_Id(String categoryId);
-
-    // Count questions by level
+    long countByCategoryId(String categoryId);
     long countByLevel(QuestionLevel level);
 
-    // Find all questions with pagination and sorting
     Page<Question> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    Page<Question> findByCategoryIdOrderByCreatedAtDesc(String categoryId, Pageable pageable);
 
-    // Find questions in a category with pagination and sorting
-    Page<Question> findByCategory_IdOrderByCreatedAtDesc(String categoryId, Pageable pageable);
-
-    // Custom aggregation to get questions with solution count
-    @Query(value = "{ 'category': ?0 }", fields = "{ 'title': 1, 'level': 1, 'createdAt': 1 }")
+    @Query(value = "{ 'categoryId': ?0 }", fields = "{ 'title': 1, 'level': 1, 'createdAt': 1 }")
     List<Question> findQuestionSummaryByCategory(String categoryId);
 
-    // Check if title exists (case-insensitive)
     @Query(value = "{ 'title': { $regex: ?0, $options: 'i' } }", exists = true)
     boolean existsByTitleIgnoreCase(String title);
 
-    /**
-     * Count questions without displayOrder (for migration check)
-     */
     long countByDisplayOrderIsNull();
-
-    /**
-     * Find questions by category and level without displayOrder
-     * Used for migration and maintenance
-     */
-    List<Question> findByCategory_IdAndLevelAndDisplayOrderIsNull(String categoryId, QuestionLevel level);
-
-    /**
-     * Find all questions without displayOrder
-     * Used for migration
-     */
+    List<Question> findByCategoryIdAndLevelAndDisplayOrderIsNull(String categoryId, QuestionLevel level);
     List<Question> findByDisplayOrderIsNull();
 
-    /**
-     * FIXED: Find maximum displayOrder for a category and level
-     * Used when creating new questions to auto-assign displayOrder
-     * 
-     * This uses Spring Data's derived query method to find the top question
-     * ordered by displayOrder descending, then extracts the displayOrder value
-     */
-    Optional<Question> findTop1ByCategory_IdAndLevelOrderByDisplayOrderDesc(String categoryId, QuestionLevel level);
+    Optional<Question> findTop1ByCategoryIdAndLevelOrderByDisplayOrderDesc(String categoryId, QuestionLevel level);
+
+    // Migration helpers
+    @Query(value = "{ 'category': { $exists: true } }")
+    List<Question> findQuestionsWithOldCategoryDBRef();
+
+    @Query(value = "{ 'createdBy': { $exists: true } }")
+    List<Question> findQuestionsWithOldCreatedByDBRef();
 }

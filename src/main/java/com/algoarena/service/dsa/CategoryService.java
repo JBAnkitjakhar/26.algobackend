@@ -185,7 +185,7 @@ public class CategoryService {
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
 
         // Get all questions in this category
-        List<Question> questions = questionRepository.findByCategory_Id(id);
+        List<Question> questions = questionRepository.findByCategoryId(id);
         int deletedQuestionsCount = questions.size();
 
         List<String> questionIds = questions.stream()

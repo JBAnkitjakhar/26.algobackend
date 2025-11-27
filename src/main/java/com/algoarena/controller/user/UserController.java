@@ -45,7 +45,7 @@ public class UserController {
         response.put("solved", solved);
         
         return ResponseEntity.ok(response);
-    }
+    }   
 
     @PostMapping("/me/mark/{questionId}")
     public ResponseEntity<Map<String, Object>> markQuestion(
