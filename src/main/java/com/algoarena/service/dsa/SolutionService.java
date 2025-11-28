@@ -7,6 +7,7 @@ import com.algoarena.model.Solution;
 import com.algoarena.model.User;
 import com.algoarena.repository.SolutionRepository;
 import com.algoarena.repository.QuestionRepository;
+import com.algoarena.service.file.CloudinaryService;
 import com.algoarena.service.file.VisualizerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
@@ -27,6 +28,9 @@ public class SolutionService {
 
     @Autowired
     private QuestionRepository questionRepository;
+
+    @Autowired
+    private CloudinaryService cloudinaryService;
 
     @Autowired
     private VisualizerService visualizerService;
@@ -58,7 +62,8 @@ public class SolutionService {
      */
     @CacheEvict(value = {
             "adminSolutionsSummary",
-            "questionSolutions"
+            "questionSolutions",
+            "adminQuestionsSummary"
     }, allEntries = true)
     public SolutionDTO createSolution(String questionId, SolutionDTO solutionDTO, User createdBy) {
         // Verify question exists
@@ -134,21 +139,72 @@ public class SolutionService {
     @CacheEvict(value = {
             "adminSolutionsSummary",
             "solutionDetail",
-            "questionSolutions"
+            "questionSolutions",
+            "adminQuestionsSummary"
     }, allEntries = true)
     public void deleteSolution(String id) {
-        if (!solutionRepository.existsById(id)) {
-            throw new RuntimeException("Solution not found");
+        Solution solution = solutionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Solution not found"));
+
+        // ✅ STEP 1: Delete Cloudinary images
+        if (solution.getImageUrls() != null && !solution.getImageUrls().isEmpty()) {
+            System.out.println("Deleting " + solution.getImageUrls().size() + " images from solution...");
+
+            for (String imageUrl : solution.getImageUrls()) {
+                try {
+                    String publicId = extractPublicIdFromUrl(imageUrl);
+                    cloudinaryService.deleteImage(publicId);
+                    System.out.println("  ✓ Deleted image: " + publicId);
+                } catch (Exception e) {
+                    System.err.println("  ✗ Failed to delete image: " + e.getMessage());
+                }
+            }
         }
 
+        // ✅ STEP 2: Delete visualizer files
         try {
             visualizerService.deleteAllVisualizersForSolution(id);
+            System.out.println("✓ Deleted visualizers for solution: " + id);
         } catch (Exception e) {
             System.err.println("Failed to clean up visualizer files: " + e.getMessage());
         }
 
+        // ✅ STEP 3: Delete solution from database
         solutionRepository.deleteById(id);
         System.out.println("✓ Deleted solution: " + id);
+    }
+
+    /**
+     * Helper method to extract Cloudinary public ID from URL
+     */
+    private String extractPublicIdFromUrl(String imageUrl) {
+        if (imageUrl == null || !imageUrl.contains("cloudinary.com")) {
+            throw new IllegalArgumentException("Invalid Cloudinary URL");
+        }
+
+        try {
+            int uploadIndex = imageUrl.indexOf("/upload/");
+            if (uploadIndex == -1) {
+                throw new IllegalArgumentException("Invalid Cloudinary URL format");
+            }
+
+            String afterUpload = imageUrl.substring(uploadIndex + 8);
+
+            // Remove version prefix (e.g., "v1234567890/")
+            if (afterUpload.startsWith("v") && afterUpload.indexOf("/") > 0) {
+                afterUpload = afterUpload.substring(afterUpload.indexOf("/") + 1);
+            }
+
+            // Remove file extension
+            int dotIndex = afterUpload.lastIndexOf(".");
+            if (dotIndex > 0) {
+                return afterUpload.substring(0, dotIndex);
+            }
+
+            return afterUpload;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to extract public ID: " + e.getMessage());
+        }
     }
 
     public boolean existsById(String id) {
@@ -192,7 +248,7 @@ public class SolutionService {
 
         return SolutionDTO.fromEntity(solutionRepository.save(solution));
     }
- 
+
     @CacheEvict(value = { "adminSolutionsSummary", "solutionDetail", "questionSolutions" }, allEntries = true)
     public SolutionDTO removeImageFromSolution(String solutionId, String imageUrl) {
         Solution solution = solutionRepository.findById(solutionId)

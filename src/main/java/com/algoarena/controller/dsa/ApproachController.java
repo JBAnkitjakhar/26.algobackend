@@ -146,4 +146,55 @@ public class ApproachController {
         }
     }
 
+    /**
+     * Delete all approaches for a question (Admin only)
+     * Useful for clearing spam or resetting a question
+     */
+    @DeleteMapping("/question/{questionId}/all")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteAllApproachesForQuestion(
+            @PathVariable String questionId) {
+        try {
+            approachService.deleteAllApproachesForQuestion(questionId);
+
+            Map<String, Object> response = Map.of(
+                    "success", true,
+                    "message", "All approaches for question deleted successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = Map.of(
+                    "success", false,
+                    "error", e.getMessage());
+
+            return ResponseEntity.status(500).body(response);
+        }
+    }
+
+    /**
+     * Delete all approaches by a specific user for a question (Admin only)
+     * Useful for moderation (removing spam/abuse)
+     */
+    @DeleteMapping("/question/{questionId}/user/{userId}")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteUserApproachesForQuestion(
+            @PathVariable String questionId,
+            @PathVariable String userId) {
+        try {
+            // FIRST: Add this method to ApproachService
+            approachService.deleteAllApproachesByUserForQuestion(userId, questionId);
+
+            Map<String, Object> response = Map.of(
+                    "success", true,
+                    "message", "All user approaches for question deleted successfully");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> response = Map.of(
+                    "success", false,
+                    "error", e.getMessage());
+
+            return ResponseEntity.status(500).body(response);
+        }
+    }
 }
