@@ -74,9 +74,8 @@ public class CategoryService {
     /**
      * GET /api/categories/metadata
      * Get lightweight category metadata (id, name, createdByName, counts, createdAt, updatedAt)
-     * Used for admin dropdowns when creating/editing questions
-     * NO CACHING - Fast enough for 50 categories (~2ms query)
      */
+    @Cacheable(value = "globalCategoriesMetadata")
     public List<CategoryMetadataDTO> getCategoriesMetadata() {
         System.out.println("Fetching category metadata (id, name, createdByName, counts, timestamps)");
 
@@ -102,7 +101,7 @@ public class CategoryService {
      * Create new category
      * UPDATED: Stores creator name and ID directly (denormalized)
      */
-    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "globalCategoriesMetadata" }, allEntries = true)
     public CategoryDTO createCategory(CategoryDTO categoryDTO, User createdBy) {
         // Check if category name already exists
         if (categoryRepository.existsByNameIgnoreCase(categoryDTO.getName())) {
@@ -147,7 +146,7 @@ public class CategoryService {
      * PUT /api/categories/{id}
      * Update category name and/or displayOrder
      */
-    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "globalCategoriesMetadata" }, allEntries = true)
     public CategoryDTO updateCategory(String id, CategoryDTO categoryDTO) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
@@ -172,13 +171,21 @@ public class CategoryService {
 
         return CategoryDTO.fromEntity(updatedCategory);
     }
-
+// adminQuestionsSummary,\
+//   adminSolutionsSummary,\
+//   globalCategories,\
+//   globalCategoriesMetadata,\
+//   userMeStats,\
+//   questionsMetadata,\
+//   questionDetail,\
+//   questionSolutions,\
+//   solutionDetail,\
     /**
      * DELETE /api/categories/{id}
      * Delete category and all its questions (cascade)
      */
-    @CacheEvict(value = { "globalCategories", "categoryProgress",
-            "questionsMetadata", "userProgressMap", "userMeStats" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "globalCategoriesMetadata",
+            "questionsMetadata", "adminQuestionsSummary", "adminSolutionsSummary", "questionDetail", "questionSolutions", "solutionDetail", "userMeStats" }, allEntries = true)
     @Transactional
     public Map<String, Object> deleteCategory(String id) {
         Category category = categoryRepository.findById(id)
@@ -225,7 +232,7 @@ public class CategoryService {
     /**
      * Helper: Add question to category
      */
-    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "globalCategoriesMetadata" }, allEntries = true)
     public void addQuestionToCategory(String categoryId, String questionId, QuestionLevel level) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -239,7 +246,7 @@ public class CategoryService {
     /**
      * Helper: Remove question from category
      */
-    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "globalCategoriesMetadata" }, allEntries = true)
     public void removeQuestionFromCategory(String categoryId, String questionId, QuestionLevel level) {
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new RuntimeException("Category not found"));
@@ -253,7 +260,7 @@ public class CategoryService {
     /**
      * Helper: Move question between categories or levels
      */
-    @CacheEvict(value = { "globalCategories", "categoryProgress" }, allEntries = true)
+    @CacheEvict(value = { "globalCategories", "globalCategoriesMetadata" }, allEntries = true)
     public void moveQuestion(String oldCategoryId, String newCategoryId,
             String questionId, QuestionLevel oldLevel, QuestionLevel newLevel) {
         // Remove from old category

@@ -115,7 +115,7 @@ public class QuestionService {
     }
 
     @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata",
-            "adminQuestionDetail" }, allEntries = true)
+            "questionDetail" }, allEntries = true)
     @Transactional
     public QuestionDTO updateQuestion(String id, QuestionDTO questionDTO) {
         Question question = questionRepository.findById(id)
@@ -186,8 +186,22 @@ public class QuestionService {
         return QuestionDTO.fromEntity(updatedQuestion);
     }
 
+//     adminQuestionsSummary,\
+//   adminSolutionsSummary,\
+//   globalCategories,\
+//   userMeStats,\
+//   questionsMetadata,\
+//   questionDetail,\
+//   questionSolutions,\
+//   solutionDetail,\
+//   courseTopic,\
+//   courseDocsList,\
+//   courseDoc,\
+//   topicNamesPublic,\
+//   topicNamesAdmin
+
     @CacheEvict(value = { "globalCategories", "adminQuestionsSummary", "questionsMetadata",
-            "adminQuestionDetail" }, allEntries = true)
+            "questionDetail", "userMeStats", "adminSolutionsSummary", "solutionDetail", "questionSolutions" }, allEntries = true)
     @Transactional
     public void deleteQuestion(String id) {
         Question question = questionRepository.findById(id)
@@ -214,20 +228,6 @@ public class QuestionService {
 
     public boolean existsByTitle(String title) {
         return questionRepository.existsByTitleIgnoreCase(title);
-    }
-
-    @Cacheable(value = "adminStats", key = "'questionCounts'")
-    public Map<String, Object> getQuestionCounts() {
-        Map<String, Object> counts = new HashMap<>();
-        counts.put("total", questionRepository.count());
-
-        Map<String, Long> levelCounts = new HashMap<>();
-        levelCounts.put("easy", questionRepository.countByLevel(QuestionLevel.EASY));
-        levelCounts.put("medium", questionRepository.countByLevel(QuestionLevel.MEDIUM));
-        levelCounts.put("hard", questionRepository.countByLevel(QuestionLevel.HARD));
-        counts.put("byLevel", levelCounts);
-
-        return counts;
     }
 
     @Cacheable(value = "adminQuestionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
@@ -304,19 +304,11 @@ public class QuestionService {
         return counts;
     }
 
-    @Cacheable(value = "adminQuestionDetail", key = "#questionId")
-    public QuestionDTO getAdminQuestionById(String questionId) {
-        Question question = questionRepository.findById(questionId)
-                .orElseThrow(() -> new RuntimeException("Question not found with id: " + questionId));
-
-        return QuestionDTO.fromEntity(question);
-    }
-
     /**
      * Get question by ID for authenticated users
-     * Globally cached - same cache as admin endpoint
+     * Globally cached 
      */
-    @Cacheable(value = "adminQuestionDetail", key = "#questionId")
+    @Cacheable(value = "questionDetail", key = "#questionId")
     public QuestionDTO getQuestionById(String questionId) {
         System.out.println("CACHE MISS: Fetching question detail for: " + questionId);
 

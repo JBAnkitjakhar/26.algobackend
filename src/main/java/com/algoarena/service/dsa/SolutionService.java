@@ -55,11 +55,9 @@ public class SolutionService {
 
     /**
      * Create new solution
-     * ✅ NO MORE N+1 QUERIES!
      */
     @CacheEvict(value = {
             "adminSolutionsSummary",
-            "solutionDetail",
             "questionSolutions"
     }, allEntries = true)
     public SolutionDTO createSolution(String questionId, SolutionDTO solutionDTO, User createdBy) {
@@ -70,7 +68,6 @@ public class SolutionService {
 
         Solution solution = new Solution();
 
-        // ✅ DENORMALIZED: Store IDs and names directly!
         solution.setQuestionId(questionId);
         solution.setCreatedByName(createdBy.getName());
 
@@ -195,7 +192,7 @@ public class SolutionService {
 
         return SolutionDTO.fromEntity(solutionRepository.save(solution));
     }
-
+ 
     @CacheEvict(value = { "adminSolutionsSummary", "solutionDetail", "questionSolutions" }, allEntries = true)
     public SolutionDTO removeImageFromSolution(String solutionId, String imageUrl) {
         Solution solution = solutionRepository.findById(solutionId)
@@ -271,7 +268,6 @@ public class SolutionService {
     }
 
     /**
-     * ✅ OPTIMIZED: Get admin summary (NO MORE N+1!)
      * Now returns data in ONE query!
      */
     @Cacheable(value = "adminSolutionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")

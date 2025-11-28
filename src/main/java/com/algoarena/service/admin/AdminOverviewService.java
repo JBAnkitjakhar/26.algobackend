@@ -7,7 +7,6 @@ import com.algoarena.model.User;
 import com.algoarena.model.UserApproaches;
 import com.algoarena.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
-// ❌ REMOVED: import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -43,10 +42,6 @@ public class AdminOverviewService {
 
     @Autowired
     private MongoTemplate mongoTemplate;
-
-    // ❌ REMOVED: Version injection
-    // @Value("${spring.application.version:1.0.0}")
-    // private String appVersion;
 
     /**
      * Generate complete admin overview statistics
@@ -178,9 +173,6 @@ public class AdminOverviewService {
             health.setDatabaseConnected(false);
             health.setDatabaseStatus("Error: " + e.getMessage());
         }
-
-        // ❌ REMOVED: Version setting
-        // health.setAppVersion(appVersion);
 
         return health;
     }

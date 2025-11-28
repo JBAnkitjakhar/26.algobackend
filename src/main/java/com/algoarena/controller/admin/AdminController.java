@@ -8,7 +8,6 @@ import com.algoarena.dto.admin.AdminOverviewDTO;
 import com.algoarena.dto.admin.UserDTO;
 import com.algoarena.dto.dsa.AdminQuestionSummaryDTO;
 import com.algoarena.dto.dsa.AdminSolutionSummaryDTO;
-import com.algoarena.dto.dsa.QuestionDTO;
 import com.algoarena.model.User;
 import com.algoarena.model.UserRole;
  
@@ -58,23 +57,6 @@ public class AdminController {
         Page<AdminQuestionSummaryDTO> summaries = questionService.getAdminQuestionsSummary(pageable);
 
         return ResponseEntity.ok(summaries);
-    }
-
-    @GetMapping("/questions/{id}")
-    public ResponseEntity<QuestionDTO> getAdminQuestionById(@PathVariable String id) {
-        System.out.println("=== ADMIN ENDPOINT HIT ===");
-        System.out.println("Question ID requested: " + id);
-
-        try {
-            QuestionDTO question = questionService.getAdminQuestionById(id);
-            System.out.println("Question retrieved successfully: " + question.getTitle());
-            return ResponseEntity.ok(question);
-        } catch (Exception e) {
-            System.out.println("ERROR in AdminController: " + e.getClass().getName());
-            System.out.println("ERROR Message: " + e.getMessage());
-            e.printStackTrace();
-            return ResponseEntity.notFound().build();
-        }
     }
 
     @GetMapping("/solutions/summary")

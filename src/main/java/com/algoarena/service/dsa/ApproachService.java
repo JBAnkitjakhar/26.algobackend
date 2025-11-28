@@ -35,7 +35,8 @@ public class ApproachService {
     private HtmlSanitizer htmlSanitizer;
 
     private static final int MAX_RETRY_ATTEMPTS = 3;
-
+    
+    //used
     public List<ApproachMetadataDTO> getMyApproachesForQuestion(String userId, String questionId) {
         Optional<UserApproaches> userApproachesOpt = userApproachesRepository.findByUserId(userId);
 
@@ -51,6 +52,7 @@ public class ApproachService {
                 .collect(Collectors.toList());
     }
 
+    //used
     public ApproachDetailDTO getMyApproachDetail(String userId, String questionId, String approachId) {
         UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
                 .orElseThrow(() -> new RuntimeException("No approaches found"));
@@ -68,6 +70,7 @@ public class ApproachService {
         return new ApproachDetailDTO(approach, userId, userApproaches.getUserName());
     }
 
+    //used
     public ApproachDetailDTO createApproach(String userId, String questionId,
             ApproachDetailDTO dto, User user) {
         Question question = questionRepository.findById(questionId)
@@ -125,6 +128,7 @@ public class ApproachService {
         throw new ConcurrentModificationException();
     }
 
+    //used
     public ApproachDetailDTO updateApproach(String userId, String questionId,
             String approachId, ApproachDetailDTO dto) {
         int attempt = 0;
@@ -186,6 +190,7 @@ public class ApproachService {
         throw new ConcurrentModificationException();
     }
 
+    //used
     public void deleteApproach(String userId, String questionId, String approachId) {
         int attempt = 0;
         while (attempt < MAX_RETRY_ATTEMPTS) {
@@ -230,19 +235,7 @@ public class ApproachService {
         throw new ConcurrentModificationException();
     }
 
-    public List<ApproachMetadataDTO> getMyAllApproaches(String userId) {
-        UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
-                .orElse(null);
-
-        if (userApproaches == null) {
-            return new ArrayList<>();
-        }
-
-        return userApproaches.getAllApproachesFlat().stream()
-                .map(data -> new ApproachMetadataDTO(data, userId, userApproaches.getUserName()))
-                .collect(Collectors.toList());
-    }
-
+    //used
     public Map<String, Object> getMyQuestionUsage(String userId, String questionId) {
         UserApproaches userApproaches = userApproachesRepository.findByUserId(userId)
                 .orElse(null);

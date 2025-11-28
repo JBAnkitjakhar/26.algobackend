@@ -33,7 +33,7 @@ public class CategoryController {
     public ResponseEntity<Map<String, CategoryDTO>> getAllCategories() {
         Map<String, CategoryDTO> categories = categoryService.getAllCategories();
         return ResponseEntity.ok(categories);
-    }
+    }   
 
     /**
      * GET /api/categories/metadata
@@ -48,7 +48,7 @@ public class CategoryController {
      * ]
      */
     @GetMapping("/metadata")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<CategoryMetadataDTO>> getCategoriesMetadata() {
         List<CategoryMetadataDTO> metadata = categoryService.getCategoriesMetadata();
         return ResponseEntity.ok(metadata);

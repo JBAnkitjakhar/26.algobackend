@@ -2,6 +2,7 @@
 package com.algoarena.service.course;
 
 import com.algoarena.dto.course.CourseTopicDTO;
+import com.algoarena.dto.course.CourseTopicNameDTO;
 import com.algoarena.model.CourseTopic;
 import com.algoarena.model.CourseDoc;
 import com.algoarena.model.User;
@@ -30,41 +31,6 @@ public class CourseTopicService {
     private CloudinaryService cloudinaryService;
 
     /**
-     * Get PUBLIC topics only (for regular users)
-     * CACHED: Multiple users benefit from same data
-     */
-    @Cacheable(value = "courseTopicsList", key = "'public'")
-    public List<CourseTopicDTO> getPublicTopicsWithDocCount() {
-        List<CourseTopic> topics = topicRepository.findByIsPublicTrueOrderByDisplayOrderAsc();
-        
-        return topics.stream()
-                .map(topic -> {
-                    CourseTopicDTO dto = CourseTopicDTO.fromEntity(topic);
-                    long docCount = docRepository.countByTopicId(topic.getId());
-                    dto.setDocsCount(docCount);
-                    return dto;
-                })
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get ALL topics (for admin)
-     */
-    @Cacheable(value = "courseTopicsList", key = "'all'")
-    public List<CourseTopicDTO> getAllTopicsWithDocCount() {
-        List<CourseTopic> topics = topicRepository.findAllByOrderByDisplayOrderAsc();
-        
-        return topics.stream()
-                .map(topic -> {
-                    CourseTopicDTO dto = CourseTopicDTO.fromEntity(topic);
-                    long docCount = docRepository.countByTopicId(topic.getId());
-                    dto.setDocsCount(docCount);
-                    return dto;
-                })
-                .collect(Collectors.toList());
-    }
-
-    /**
      * Get single topic by ID
      * CACHED: Individual topics are cached
      */
@@ -72,12 +38,38 @@ public class CourseTopicService {
     public CourseTopicDTO getTopicById(String id) {
         CourseTopic topic = topicRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + id));
-        
+
         CourseTopicDTO dto = CourseTopicDTO.fromEntity(topic);
         long docCount = docRepository.countByTopicId(topic.getId());
         dto.setDocsCount(docCount);
-        
+
         return dto;
+    }
+
+    /**
+     * Get PUBLIC topic names only (for regular users)
+     * CACHED: Lightweight, only id + name
+     */
+    @Cacheable(value = "topicNamesPublic")
+    public List<CourseTopicNameDTO> getPublicTopicNames() {
+        List<CourseTopic> topics = topicRepository.findByIsPublicTrueOrderByDisplayOrderAsc();
+
+        return topics.stream()
+                .map(CourseTopicNameDTO::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get ALL topic names (for admin)
+     * CACHED: Lightweight, only id + name + isPublic
+     */
+    @Cacheable(value = "topicNamesAdmin")
+    public List<CourseTopicNameDTO> getAllTopicNames() {
+        List<CourseTopic> topics = topicRepository.findAllByOrderByDisplayOrderAsc();
+
+        return topics.stream()
+                .map(CourseTopicNameDTO::fromEntity)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -85,7 +77,7 @@ public class CourseTopicService {
      * EVICTS: All topic list caches
      */
     @Transactional
-    @CacheEvict(value = "courseTopicsList", allEntries = true)
+    @CacheEvict(value = { "topicNamesPublic", "topicNamesAdmin" }, allEntries = true)
     public CourseTopicDTO createTopic(CourseTopicDTO dto, User currentUser) {
         if (topicRepository.existsByNameIgnoreCase(dto.getName())) {
             throw new RuntimeException("Topic with name '" + dto.getName() + "' already exists");
@@ -101,10 +93,10 @@ public class CourseTopicService {
         topic.setCreatedByName(currentUser.getName());
 
         CourseTopic savedTopic = topicRepository.save(topic);
-        
+
         CourseTopicDTO result = CourseTopicDTO.fromEntity(savedTopic);
         result.setDocsCount(0L);
-        
+
         return result;
     }
 
@@ -113,7 +105,7 @@ public class CourseTopicService {
      * EVICTS: All related caches
      */
     @Transactional
-    @CacheEvict(value = {"courseTopicsList", "courseTopic"}, allEntries = true)
+    @CacheEvict(value = { "courseTopic", "topicNamesPublic", "topicNamesAdmin", "courseDocsList", "courseDoc" }, allEntries = true)
     public CourseTopicDTO updateTopic(String id, CourseTopicDTO dto, User currentUser) {
         CourseTopic topic = topicRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + id));
@@ -131,11 +123,11 @@ public class CourseTopicService {
         topic.setIsPublic(dto.getIsPublic() != null ? dto.getIsPublic() : true);
 
         CourseTopic updatedTopic = topicRepository.save(topic);
-        
+
         CourseTopicDTO result = CourseTopicDTO.fromEntity(updatedTopic);
         long docCount = docRepository.countByTopicId(updatedTopic.getId());
         result.setDocsCount(docCount);
-        
+
         return result;
     }
 
@@ -144,18 +136,19 @@ public class CourseTopicService {
      * EVICTS: All caches since visibility changed
      */
     @Transactional
-    @CacheEvict(value = {"courseTopicsList", "courseTopic", "courseDocsList"}, allEntries = true)
+    @CacheEvict(value = { "courseTopic", "courseDocsList", "topicNamesPublic",
+            "topicNamesAdmin", "courseDoc" }, allEntries = true)
     public CourseTopicDTO toggleTopicVisibility(String id) {
         CourseTopic topic = topicRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + id));
 
         topic.setIsPublic(!topic.getIsPublic());
         CourseTopic updatedTopic = topicRepository.save(topic);
-        
+
         CourseTopicDTO result = CourseTopicDTO.fromEntity(updatedTopic);
         long docCount = docRepository.countByTopicId(updatedTopic.getId());
         result.setDocsCount(docCount);
-        
+
         return result;
     }
 
@@ -165,19 +158,20 @@ public class CourseTopicService {
      * EVICTS: All caches
      */
     @Transactional
-    @CacheEvict(value = {"courseTopicsList", "courseTopic", "courseDocsList", "courseDoc"}, allEntries = true)
+    @CacheEvict(value = { "courseTopic", "courseDocsList", "courseDoc", "topicNamesPublic",
+            "topicNamesAdmin" }, allEntries = true)
     public void deleteTopic(String id) {
         CourseTopic topic = topicRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + id));
 
         List<CourseDoc> docs = docRepository.findByTopicIdOrderByDisplayOrderAsc(id);
-        
+
         System.out.println("Deleting topic '" + topic.getName() + "' with " + docs.size() + " documents");
 
         for (CourseDoc doc : docs) {
             if (doc.getImageUrls() != null && !doc.getImageUrls().isEmpty()) {
                 System.out.println("  Deleting " + doc.getImageUrls().size() + " images from doc: " + doc.getTitle());
-                
+
                 for (String imageUrl : doc.getImageUrls()) {
                     try {
                         String publicId = extractPublicIdFromUrl(imageUrl);
@@ -188,7 +182,7 @@ public class CourseTopicService {
                     }
                 }
             }
-            
+
             docRepository.delete(doc);
             System.out.println("  ✓ Deleted document: " + doc.getTitle());
         }
@@ -228,7 +222,7 @@ public class CourseTopicService {
     public TopicStatsDTO getTopicStats() {
         long totalTopics = topicRepository.count();
         long totalDocs = docRepository.count();
-        
+
         return new TopicStatsDTO(totalTopics, totalDocs);
     }
 
@@ -241,10 +235,20 @@ public class CourseTopicService {
             this.totalDocuments = totalDocuments;
         }
 
-        public Long getTotalTopics() { return totalTopics; }
-        public void setTotalTopics(Long totalTopics) { this.totalTopics = totalTopics; }
+        public Long getTotalTopics() {
+            return totalTopics;
+        }
 
-        public Long getTotalDocuments() { return totalDocuments; }
-        public void setTotalDocuments(Long totalDocuments) { this.totalDocuments = totalDocuments; }
+        public void setTotalTopics(Long totalTopics) {
+            this.totalTopics = totalTopics;
+        }
+
+        public Long getTotalDocuments() {
+            return totalDocuments;
+        }
+
+        public void setTotalDocuments(Long totalDocuments) {
+            this.totalDocuments = totalDocuments;
+        }
     }
 }

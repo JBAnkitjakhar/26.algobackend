@@ -65,7 +65,7 @@ public class CourseDocService {
      * EVICTS: Docs list cache for this topic
      */
     @Transactional
-    @CacheEvict(value = {"courseDocsList", "courseTopicsList"}, allEntries = true)
+    @CacheEvict(value = {"courseDocsList", "courseTopic"}, allEntries = true)
     public CourseDocDTO createDoc(CourseDocDTO dto, User currentUser) {
         topicRepository.findById(dto.getTopicId())
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + dto.getTopicId()));
@@ -107,7 +107,7 @@ public class CourseDocService {
      * EVICTS: Specific doc cache + lists
      */
     @Transactional
-    @CacheEvict(value = {"courseDocsList", "courseDoc", "courseTopicsList"}, allEntries = true)
+    @CacheEvict(value = {"courseDocsList", "courseDoc" }, allEntries = true)
     public CourseDocDTO updateDoc(String id, CourseDocDTO dto, User currentUser) {
         CourseDoc doc = docRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
@@ -151,7 +151,7 @@ public class CourseDocService {
      * EVICTS: All related caches
      */
     @Transactional
-    @CacheEvict(value = {"courseDocsList", "courseDoc", "courseTopicsList"}, allEntries = true)
+    @CacheEvict(value = {"courseDocsList", "courseDoc", "courseTopic"}, allEntries = true)
     public void deleteDoc(String id) {
         CourseDoc doc = docRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));

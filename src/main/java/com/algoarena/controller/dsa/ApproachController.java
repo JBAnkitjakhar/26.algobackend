@@ -26,15 +26,13 @@ public class ApproachController {
     @GetMapping("/question/{questionId}")
     public ResponseEntity<List<ApproachMetadataDTO>> getMyApproachesForQuestion(
             @PathVariable String questionId,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
-        
+
         // Rate limiting is handled by RateLimitInterceptor automatically!
         List<ApproachMetadataDTO> approaches = approachService.getMyApproachesForQuestion(
-            currentUser.getId(), 
-            questionId
-        );
+                currentUser.getId(),
+                questionId);
         return ResponseEntity.ok(approaches);
     }
 
@@ -42,50 +40,56 @@ public class ApproachController {
     public ResponseEntity<ApproachDetailDTO> getMyApproachDetail(
             @PathVariable String questionId,
             @PathVariable String approachId,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
 
         try {
             ApproachDetailDTO approach = approachService.getMyApproachDetail(
-                currentUser.getId(), 
-                questionId, 
-                approachId
-            );
+                    currentUser.getId(),
+                    questionId,
+                    approachId);
             return ResponseEntity.ok(approach);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
     }
 
+    @GetMapping("/question/{questionId}/usage")
+    public ResponseEntity<Map<String, Object>> getMyQuestionUsage(
+            @PathVariable String questionId,
+            Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+
+        Map<String, Object> usage = approachService.getMyQuestionUsage(
+                currentUser.getId(),
+                questionId);
+        return ResponseEntity.ok(usage);
+    }
+
     @PostMapping("/question/{questionId}")
     public ResponseEntity<Map<String, Object>> createApproach(
             @PathVariable String questionId,
             @Valid @RequestBody ApproachDetailDTO dto,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
 
         try {
             ApproachDetailDTO created = approachService.createApproach(
-                currentUser.getId(), 
-                questionId, 
-                dto, 
-                currentUser
-            );
-            
+                    currentUser.getId(),
+                    questionId,
+                    dto,
+                    currentUser);
+
             Map<String, Object> response = Map.of(
-                "success", true,
-                "message", "Approach created successfully",
-                "data", created
-            );
-            
+                    "success", true,
+                    "message", "Approach created successfully",
+                    "data", created);
+
             return ResponseEntity.status(201).body(response);
         } catch (RuntimeException e) {
             Map<String, Object> response = Map.of(
-                "success", false,
-                "error", e.getMessage()
-            );
+                    "success", false,
+                    "error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
     }
@@ -95,30 +99,26 @@ public class ApproachController {
             @PathVariable String questionId,
             @PathVariable String approachId,
             @Valid @RequestBody ApproachDetailDTO dto,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
 
         try {
             ApproachDetailDTO updated = approachService.updateApproach(
-                currentUser.getId(), 
-                questionId, 
-                approachId, 
-                dto
-            );
-            
+                    currentUser.getId(),
+                    questionId,
+                    approachId,
+                    dto);
+
             Map<String, Object> response = Map.of(
-                "success", true,
-                "message", "Approach updated successfully",
-                "data", updated
-            );
-            
+                    "success", true,
+                    "message", "Approach updated successfully",
+                    "data", updated);
+
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             Map<String, Object> response = Map.of(
-                "success", false,
-                "error", e.getMessage()
-            );
+                    "success", false,
+                    "error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
     }
@@ -127,39 +127,23 @@ public class ApproachController {
     public ResponseEntity<Map<String, Object>> deleteApproach(
             @PathVariable String questionId,
             @PathVariable String approachId,
-            Authentication authentication
-    ) {
+            Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
 
         try {
             approachService.deleteApproach(currentUser.getId(), questionId, approachId);
-            
+
             Map<String, Object> response = Map.of(
-                "success", true,
-                "message", "Approach deleted successfully"
-            );
-            
+                    "success", true,
+                    "message", "Approach deleted successfully");
+
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             Map<String, Object> response = Map.of(
-                "success", false,
-                "error", e.getMessage()
-            );
+                    "success", false,
+                    "error", e.getMessage());
             return ResponseEntity.badRequest().body(response);
         }
     }
 
-    @GetMapping("/question/{questionId}/usage")
-    public ResponseEntity<Map<String, Object>> getMyQuestionUsage(
-            @PathVariable String questionId,
-            Authentication authentication
-    ) {
-        User currentUser = (User) authentication.getPrincipal();
-
-        Map<String, Object> usage = approachService.getMyQuestionUsage(
-            currentUser.getId(), 
-            questionId
-        );
-        return ResponseEntity.ok(usage);
-    }
 }

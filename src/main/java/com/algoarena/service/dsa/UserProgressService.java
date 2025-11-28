@@ -1,13 +1,11 @@
 // File: src/main/java/com/algoarena/service/dsa/UserProgressService.java
 package com.algoarena.service.dsa;
 
-import com.algoarena.config.RateLimitConfig;
 import com.algoarena.dto.user.UserMeStatsDTO;
 import com.algoarena.exception.*;
 import com.algoarena.model.UserProgress;
 import com.algoarena.repository.QuestionRepository;
 import com.algoarena.repository.UserProgressRepository;
-import io.github.bucket4j.Bucket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,31 +28,6 @@ public class UserProgressService {
     @Autowired
     private QuestionRepository questionRepository;
 
-    @Autowired
-    private RateLimitConfig rateLimitConfig;
-
-    /**
-     * Check rate limit for WRITE operations
-     */
-    private void checkWriteRateLimit(String userId) {
-        Bucket bucket = rateLimitConfig.resolveWriteBucket(userId);
-        if (!bucket.tryConsume(1)) {
-            logger.warn("⚠️ Write rate limit exceeded for user: {}", userId);
-            throw new RateLimitExceededException();
-        }
-    }
-
-    /**
-     * Check rate limit for READ operations
-     */
-    private void checkReadRateLimit(String userId) {
-        Bucket bucket = rateLimitConfig.resolveReadBucket(userId);
-        if (!bucket.tryConsume(1)) {
-            logger.warn("⚠️ Read rate limit exceeded for user: {}", userId);
-            throw new RateLimitExceededException();
-        }
-    }
-
     /**
      * Validate question ID
      */
@@ -66,10 +39,10 @@ public class UserProgressService {
 
     /**
      * Get user stats - cached by userId
+     * Rate limiting handled by RateLimitInterceptor (60/min for reads)
      */
     @Cacheable(value = "userMeStats", key = "#userId")
     public UserMeStatsDTO getUserMeStats(String userId) {
-        checkReadRateLimit(userId);
         
         UserProgress progress = userProgressRepository.findByUserId(userId)
                 .orElse(new UserProgress(userId));
@@ -94,12 +67,24 @@ public class UserProgressService {
                 .orElseGet(() -> createUserProgress(userId));
     }
 
+    /** Get api   returns true or false
+     * Check if question is solved
+     * Rate limiting handled by RateLimitInterceptor (60/min for reads)
+     */
+    public boolean isQuestionSolved(String userId, String questionId) {
+        validateQuestionId(questionId);
+        
+        return userProgressRepository.findByUserId(userId)
+                .map(progress -> progress.isQuestionSolved(questionId))
+                .orElse(false);
+    }
+
     /**
      * Mark question as solved - evicts ONLY this user's cache
+     * Rate limiting handled by RateLimitInterceptor (10/min for writes)
      */
     @CacheEvict(value = "userMeStats", key = "#userId")
     public void markQuestionAsSolved(String userId, String questionId) {
-        checkWriteRateLimit(userId);
         validateQuestionId(questionId);
         
         int attempt = 0;
@@ -146,23 +131,11 @@ public class UserProgressService {
     }
 
     /**
-     * Check if question is solved
-     */
-    public boolean isQuestionSolved(String userId, String questionId) {
-        checkReadRateLimit(userId);
-        validateQuestionId(questionId);
-        
-        return userProgressRepository.findByUserId(userId)
-                .map(progress -> progress.isQuestionSolved(questionId))
-                .orElse(false);
-    }
-
-    /**
      * Unmark question - evicts ONLY this user's cache
+     * Rate limiting handled by RateLimitInterceptor (10/min for writes)
      */
     @CacheEvict(value = "userMeStats", key = "#userId")
     public void unmarkQuestionAsSolved(String userId, String questionId) {
-        checkWriteRateLimit(userId);
         validateQuestionId(questionId);
         
         int attempt = 0;
@@ -203,8 +176,9 @@ public class UserProgressService {
         }
     }
 
-    /**
+    /** for question deletion
      * Remove question from all users - clears ALL caches
+     * (Admin operation - no rate limiting needed)
      */
     @CacheEvict(value = "userMeStats", allEntries = true)
     public int removeQuestionFromAllUsers(String questionId) {
@@ -223,8 +197,9 @@ public class UserProgressService {
         return removedCount;
     }
 
-    /**
+    /**  for category deletion
      * Remove questions from all users - clears ALL caches
+     * (Admin operation - no rate limiting needed)
      */
     @CacheEvict(value = "userMeStats", allEntries = true)
     public int removeQuestionsFromAllUsers(List<String> questionIds) {
@@ -250,3 +225,4 @@ public class UserProgressService {
         return totalRemoved;
     }
 }
+ 
