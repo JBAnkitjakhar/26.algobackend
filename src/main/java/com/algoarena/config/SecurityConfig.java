@@ -1,6 +1,4 @@
 // src/main/java/com/algoarena/config/SecurityConfig.java
-// COMPLETE FILE - Replace your entire SecurityConfig.java with this
-
 package com.algoarena.config;
 
 import com.algoarena.security.JwtAuthenticationFilter;
@@ -58,7 +56,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // PUBLIC ENDPOINTS (No authentication required)
+                        // ✅ EXPLICIT OPTIONS FOR VISIBILITY - VERY FIRST RULE
+                        .requestMatchers(HttpMethod.OPTIONS, "/courses/topics/*/visibility").permitAll()
+                        
+                        // ✅ GENERIC OPTIONS - SECOND RULE
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        
+                        // PUBLIC ENDPOINTS
                         .requestMatchers(
                                 "/auth/**",
                                 "/oauth2/**",
@@ -82,9 +86,10 @@ public class SecurityConfig {
                         // COURSE TOPICS - ADMIN ONLY
                         .requestMatchers(HttpMethod.POST, "/courses/topics").hasAnyRole("ADMIN", "SUPERADMIN")
                         .requestMatchers(HttpMethod.PUT, "/courses/topics/**").hasAnyRole("ADMIN", "SUPERADMIN")
-                        .requestMatchers(HttpMethod.PATCH, "/courses/topics/*/visibility")
-                        .hasAnyRole("ADMIN", "SUPERADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/courses/topics/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                        
+                        // PATCH VISIBILITY - ADMIN ONLY (for the actual PATCH request, not OPTIONS)
+                        .requestMatchers(HttpMethod.PATCH, "/courses/topics/*/visibility").hasAnyRole("ADMIN", "SUPERADMIN")
 
                         // COURSE DOCS - ADMIN ONLY
                         .requestMatchers(HttpMethod.POST, "/courses/docs").hasAnyRole("ADMIN", "SUPERADMIN")
