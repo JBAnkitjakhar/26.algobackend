@@ -236,11 +236,12 @@ public class CourseController {
 
     /**
      * Toggle topic public/private
-     * PATCH /api/courses/topics/{topicId}/visibility
+     * PUT /api/courses/topics/{topicId}/visibility
      */
-    @PatchMapping("/topics/{topicId}/visibility")
+    @PutMapping("/topics/{topicId}/visibility")
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
     public ResponseEntity<Map<String, Object>> toggleTopicVisibility(@PathVariable String topicId) {
+        System.out.println("🔍 PUT request received for topic: " + topicId); // Add this
         try {
             CourseTopicDTO updatedTopic = topicService.toggleTopicVisibility(topicId);
 

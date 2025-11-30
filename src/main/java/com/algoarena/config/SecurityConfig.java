@@ -56,8 +56,6 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ EXPLICIT OPTIONS FOR VISIBILITY - VERY FIRST RULE
-                        .requestMatchers(HttpMethod.OPTIONS, "/courses/topics/*/visibility").permitAll()
                         
                         // ✅ GENERIC OPTIONS - SECOND RULE
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -85,16 +83,15 @@ public class SecurityConfig {
 
                         // COURSE TOPICS - ADMIN ONLY
                         .requestMatchers(HttpMethod.POST, "/courses/topics").hasAnyRole("ADMIN", "SUPERADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/courses/topics/**").hasAnyRole("ADMIN", "SUPERADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/courses/topics/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/courses/topics/*").hasAnyRole("ADMIN", "SUPERADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/courses/topics/*").hasAnyRole("ADMIN", "SUPERADMIN")
                         
-                        // PATCH VISIBILITY - ADMIN ONLY (for the actual PATCH request, not OPTIONS)
-                        .requestMatchers(HttpMethod.PATCH, "/courses/topics/*/visibility").hasAnyRole("ADMIN", "SUPERADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/courses/topics/*/visibility").hasAnyRole("ADMIN", "SUPERADMIN")
 
                         // COURSE DOCS - ADMIN ONLY
                         .requestMatchers(HttpMethod.POST, "/courses/docs").hasAnyRole("ADMIN", "SUPERADMIN")
-                        .requestMatchers(HttpMethod.PUT, "/courses/docs/**").hasAnyRole("ADMIN", "SUPERADMIN")
-                        .requestMatchers(HttpMethod.DELETE, "/courses/docs/**").hasAnyRole("ADMIN", "SUPERADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/courses/docs/*").hasAnyRole("ADMIN", "SUPERADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/courses/docs/*").hasAnyRole("ADMIN", "SUPERADMIN")
 
                         // SPECIFIC ADMIN READ ENDPOINTS - MUST BE BEFORE PUBLIC
                         .requestMatchers(HttpMethod.GET, "/courses/topicsnamesall").hasAnyRole("ADMIN", "SUPERADMIN")
@@ -116,10 +113,7 @@ public class SecurityConfig {
 
                         // AUTHENTICATED USER ENDPOINTS - READ ACCESS
                         .requestMatchers(HttpMethod.GET,
-                                "/questions/summary",
-                                "/questions",
                                 "/questions/{id}",
-                                "/categories/with-progress",
                                 "/categories",
                                 "/categories/{id}",
                                 "/categories/{id}/stats",
@@ -129,7 +123,6 @@ public class SecurityConfig {
                                 "/approaches/**",
                                 "/compiler/**",
                                 "/users/progress",
-                                "/users/progress/recent",
                                 "/files/solutions/*/visualizers",
                                 "/files/visualizers/**")
                         .authenticated()
@@ -210,7 +203,7 @@ public class SecurityConfig {
         if (methods != null && !methods.trim().isEmpty()) {
             configuration.setAllowedMethods(Arrays.asList(methods.split(",")));
         } else {
-            configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+            configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         }
 
         configuration.setAllowedHeaders(Arrays.asList("*"));
