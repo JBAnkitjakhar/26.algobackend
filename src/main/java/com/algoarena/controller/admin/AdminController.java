@@ -191,6 +191,4 @@ public class AdminController {
             this.role = role;
         }
     }
-
-  
 }

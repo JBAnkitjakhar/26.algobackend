@@ -15,7 +15,6 @@ import com.algoarena.repository.UserApproachesRepository;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -50,13 +49,15 @@ public class AdminOverviewService {
      * @return AdminOverviewDTO with all statistics
      */
     public AdminOverviewDTO getAdminOverview() {
-        // Calculate date ranges
-        LocalDateTime todayStart = LocalDate.now().atStartOfDay();
-        LocalDateTime todayEnd = LocalDate.now().atTime(LocalTime.MAX);
-        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
-
-        // Get users who logged in today
+        // ✅ FIXED: Calculate today's 24-hour range for IST (UTC + 5:30)
+        // Database stores UTC, so we subtract 5 hours 30 minutes to get IST midnight
+        LocalDateTime todayStart = LocalDate.now().atStartOfDay().minusHours(5).minusMinutes(30); // 12:00 AM IST = 6:30 PM UTC (previous day)
+        LocalDateTime todayEnd = todayStart.plusDays(1); // Next day 6:30 PM UTC = 12:00 AM IST tomorrow
+        
+        
+        // Get users who logged in today (between 12 AM IST today and 12 AM IST tomorrow)
         List<LoggedInUserDTO> loggedInUsers = getUsersLoggedInTodayDetails(todayStart, todayEnd);
+        LocalDateTime sevenDaysAgo = LocalDateTime.now().minusDays(7);
 
         // Build overview DTO using builder pattern
         AdminOverviewDTO overview = new AdminOverviewDTO.Builder()
@@ -115,12 +116,14 @@ public class AdminOverviewService {
     }
 
     /**
-     * Get details of users who logged in today
+     * ✅ FIXED: Get details of users who logged in today (12 AM IST to 12 AM IST)
+     * Queries users with lastLogin between todayStart and todayEnd (in UTC)
      */
     private List<LoggedInUserDTO> getUsersLoggedInTodayDetails(LocalDateTime todayStart, LocalDateTime todayEnd) {
+        // Query for users whose lastLogin is >= todayStart AND < todayEnd
         Query query = new Query(Criteria.where("lastLogin")
                 .gte(todayStart)
-                .lte(todayEnd));
+                .lt(todayEnd));
 
         List<User> users = mongoTemplate.find(query, User.class);
 
@@ -130,7 +133,8 @@ public class AdminOverviewService {
                         user.getName(),
                         user.getEmail(),
                         user.getGithubUsername(),
-                        user.getImage()))
+                        user.getImage(),
+                        user.getLastLogin())) // Pass lastLogin timestamp
                 .collect(Collectors.toList());
     }
 
