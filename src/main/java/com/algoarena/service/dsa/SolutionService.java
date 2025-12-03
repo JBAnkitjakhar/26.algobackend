@@ -324,7 +324,7 @@ public class SolutionService {
     }
 
     /**
-     * Now returns data in ONE query!
+     * Now returns data in ONE query with YouTube and Drive link indicators!
      */
     @Cacheable(value = "adminSolutionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
     public Page<AdminSolutionSummaryDTO> getAdminSolutionsSummary(Pageable pageable) {
@@ -340,8 +340,13 @@ public class SolutionService {
             dto.setVisualizerCount(
                     solution.getVisualizerFileIds() != null ? solution.getVisualizerFileIds().size() : 0);
             dto.setCodeLanguage(solution.getCodeSnippet() != null ? solution.getCodeSnippet().getLanguage() : null);
+
+            // ✅ SET THE NEW FIELDS using helper methods from Solution model
+            dto.setHasYoutubeLink(solution.hasValidYoutubeLink());
+            dto.setHasDriveLink(solution.hasValidDriveLink());
+
             dto.setCreatedByName(solution.getCreatedByName());
-            dto.setCreatedAt(solution.getCreatedAt()); // ✅ ADD THIS LINE
+            dto.setCreatedAt(solution.getCreatedAt());
             dto.setUpdatedAt(solution.getUpdatedAt());
             return dto;
         });

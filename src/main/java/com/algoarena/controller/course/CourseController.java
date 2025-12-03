@@ -4,6 +4,7 @@ package com.algoarena.controller.course;
 import com.algoarena.dto.course.CourseDocDTO;
 import com.algoarena.dto.course.CourseTopicDTO;
 import com.algoarena.dto.course.CourseTopicNameDTO;
+import com.algoarena.dto.course.MoveDocRequest;
 import com.algoarena.model.User;
 import com.algoarena.service.course.CourseDocService;
 import com.algoarena.service.course.CourseTopicService;
@@ -395,4 +396,36 @@ public class CourseController {
         }
     }
 
+    /**
+     * Move document to a different topic
+     * PUT /api/courses/docs/{docId}/move
+     */
+    @PutMapping("/docs/{docId}/move")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
+    public ResponseEntity<Map<String, Object>> moveDocToTopic(
+            @PathVariable String docId,
+            @Valid @RequestBody MoveDocRequest request) {
+        try {
+            CourseDocDTO movedDoc = docService.moveDocToTopic(docId, request.getNewTopicId());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("data", movedDoc);
+            response.put("message", "Document moved successfully to new topic");
+
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to move document");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(400).body(errorResponse);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("error", "Failed to move document");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
 }

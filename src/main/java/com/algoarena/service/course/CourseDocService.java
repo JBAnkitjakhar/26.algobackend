@@ -42,7 +42,7 @@ public class CourseDocService {
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + topicId));
 
         List<CourseDoc> docs = docRepository.findByTopicIdOrderByDisplayOrderAsc(topicId);
-        
+
         return docs.stream()
                 .map(CourseDocDTO::fromEntity)
                 .collect(Collectors.toList());
@@ -56,7 +56,7 @@ public class CourseDocService {
     public CourseDocDTO getDocById(String id) {
         CourseDoc doc = docRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
-        
+
         return CourseDocDTO.fromEntityWithContent(doc);
     }
 
@@ -65,7 +65,7 @@ public class CourseDocService {
      * EVICTS: Docs list cache for this topic
      */
     @Transactional
-    @CacheEvict(value = {"courseDocsList", "courseTopic"}, allEntries = true)
+    @CacheEvict(value = { "courseDocsList", "courseTopic" }, allEntries = true)
     public CourseDocDTO createDoc(CourseDocDTO dto, User currentUser) {
         topicRepository.findById(dto.getTopicId())
                 .orElseThrow(() -> new RuntimeException("Topic not found with id: " + dto.getTopicId()));
@@ -93,7 +93,7 @@ public class CourseDocService {
 
         long totalSize = calculateDocumentSize(doc);
         if (totalSize > MAX_DOC_SIZE) {
-            throw new RuntimeException("Document size (" + formatSize(totalSize) + 
+            throw new RuntimeException("Document size (" + formatSize(totalSize) +
                     ") exceeds maximum limit of " + formatSize(MAX_DOC_SIZE));
         }
         doc.setTotalSize(totalSize);
@@ -107,7 +107,7 @@ public class CourseDocService {
      * EVICTS: Specific doc cache + lists
      */
     @Transactional
-    @CacheEvict(value = {"courseDocsList", "courseDoc" }, allEntries = true)
+    @CacheEvict(value = { "courseDocsList", "courseDoc" }, allEntries = true)
     public CourseDocDTO updateDoc(String id, CourseDocDTO dto, User currentUser) {
         CourseDoc doc = docRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
@@ -137,7 +137,7 @@ public class CourseDocService {
 
         long totalSize = calculateDocumentSize(doc);
         if (totalSize > MAX_DOC_SIZE) {
-            throw new RuntimeException("Document size (" + formatSize(totalSize) + 
+            throw new RuntimeException("Document size (" + formatSize(totalSize) +
                     ") exceeds maximum limit of " + formatSize(MAX_DOC_SIZE));
         }
         doc.setTotalSize(totalSize);
@@ -151,14 +151,14 @@ public class CourseDocService {
      * EVICTS: All related caches
      */
     @Transactional
-    @CacheEvict(value = {"courseDocsList", "courseDoc", "courseTopic"}, allEntries = true)
+    @CacheEvict(value = { "courseDocsList", "courseDoc", "courseTopic" }, allEntries = true)
     public void deleteDoc(String id) {
         CourseDoc doc = docRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Document not found with id: " + id));
 
         if (doc.getImageUrls() != null && !doc.getImageUrls().isEmpty()) {
             System.out.println("Deleting " + doc.getImageUrls().size() + " images from document: " + doc.getTitle());
-            
+
             for (String imageUrl : doc.getImageUrls()) {
                 try {
                     String publicId = extractPublicIdFromUrl(imageUrl);
@@ -225,17 +225,16 @@ public class CourseDocService {
     }
 
     private String formatSize(long bytes) {
-        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024)
+            return bytes + " B";
         int exp = (int) (Math.log(bytes) / Math.log(1024));
         char pre = "KMGTPE".charAt(exp - 1);
         return String.format("%.2f %sB", bytes / Math.pow(1024, exp), pre);
     }
 
     public DocStatsDTO getDocStats(String topicId) {
-        long totalDocs = topicId != null ? 
-                docRepository.countByTopicId(topicId) : 
-                docRepository.count();
-        
+        long totalDocs = topicId != null ? docRepository.countByTopicId(topicId) : docRepository.count();
+
         return new DocStatsDTO(totalDocs);
     }
 
@@ -246,7 +245,46 @@ public class CourseDocService {
             this.totalDocuments = totalDocuments;
         }
 
-        public Long getTotalDocuments() { return totalDocuments; }
-        public void setTotalDocuments(Long totalDocuments) { this.totalDocuments = totalDocuments; }
+        public Long getTotalDocuments() {
+            return totalDocuments;
+        }
+
+        public void setTotalDocuments(Long totalDocuments) {
+            this.totalDocuments = totalDocuments;
+        }
+    }
+
+    /**
+     * Move document to a different topic (Admin only)
+     * EVICTS: All related caches since both topics are affected
+     */
+    @Transactional
+    @CacheEvict(value = { "courseDocsList", "courseDoc", "courseTopic" }, allEntries = true)
+    public CourseDocDTO moveDocToTopic(String docId, String newTopicId) {
+        // Find the document
+        CourseDoc doc = docRepository.findById(docId)
+                .orElseThrow(() -> new RuntimeException("Document not found with id: " + docId));
+
+        // Verify the new topic exists
+        if (!topicRepository.existsById(newTopicId)) {
+            throw new RuntimeException("Target topic not found with id: " + newTopicId);
+        }
+
+        // Check if document is already in the target topic
+        if (doc.getTopicId().equals(newTopicId)) {
+            throw new RuntimeException("Document is already in the target topic");
+        }
+
+        String oldTopicId = doc.getTopicId();
+
+        // Update the topic ID
+        doc.setTopicId(newTopicId);
+
+        CourseDoc updatedDoc = docRepository.save(doc);
+
+        System.out.println("✓ Moved document '" + doc.getTitle() + "' from topic " +
+                oldTopicId + " to " + newTopicId);
+
+        return CourseDocDTO.fromEntityWithContent(updatedDoc);
     }
 }
