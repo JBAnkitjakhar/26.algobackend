@@ -92,8 +92,37 @@ public class CloudinaryService {
     @SuppressWarnings("unchecked")
     public Map<String, Object> deleteImage(String publicId) throws IOException {
         try {
-            return (Map<String, Object>) cloudinary.uploader().destroy(publicId, new HashMap<>());
+            // System.out.println("🗑️ CloudinaryService: Attempting to delete image");
+            // System.out.println("   Public ID received: " + publicId);
+
+            // ✅ FIXED: Add proper options
+            Map<String, Object> options = new HashMap<>();
+            options.put("resource_type", "image");
+            options.put("invalidate", true); // Invalidate CDN cache
+
+            // Call Cloudinary API
+            Map<String, Object> result = (Map<String, Object>) cloudinary.uploader().destroy(publicId, options);
+
+            // System.out.println("   Cloudinary raw response: " + result);
+
+            // ✅ CRITICAL: Check if deletion actually succeeded
+            String resultStatus = (String) result.get("result");
+            // System.out.println("   Deletion result status: " + resultStatus);
+
+            if (!"ok".equals(resultStatus)) {
+                // Deletion failed - image not found or other error
+                String errorMessage = String.format(
+                        "Cloudinary deletion failed: result='%s' for publicId='%s'",
+                        resultStatus, publicId);
+                System.err.println("❌ " + errorMessage);
+                throw new IOException(errorMessage);
+            }
+
+            // System.out.println("✅ Image successfully deleted from Cloudinary");
+            return result;
+
         } catch (IOException e) {
+            System.err.println("❌ CloudinaryService delete error: " + e.getMessage());
             throw new RuntimeException("Failed to delete image from Cloudinary: " + e.getMessage(), e);
         }
     }
