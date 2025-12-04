@@ -2,6 +2,7 @@
 package com.algoarena.service.dsa;
 
 import com.algoarena.dto.user.UserMeStatsDTO;
+import com.algoarena.dto.user.QuestionSolveStatusDTO;
 import com.algoarena.exception.*;
 import com.algoarena.model.UserProgress;
 import com.algoarena.repository.QuestionRepository;
@@ -14,6 +15,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -67,8 +69,25 @@ public class UserProgressService {
                 .orElseGet(() -> createUserProgress(userId));
     }
 
-    /** Get api   returns true or false
-     * Check if question is solved
+    /**
+     * ✅ NEW: Get question solve status with timestamp
+     * Rate limiting handled by RateLimitInterceptor (60/min for reads)
+     */
+    public QuestionSolveStatusDTO getQuestionSolveStatus(String userId, String questionId) {
+        validateQuestionId(questionId);
+        
+        UserProgress progress = userProgressRepository.findByUserId(userId).orElse(null);
+        
+        if (progress == null || !progress.isQuestionSolved(questionId)) {
+            return QuestionSolveStatusDTO.notSolved();
+        }
+        
+        LocalDateTime solvedAt = progress.getSolvedAt(questionId);
+        return QuestionSolveStatusDTO.solved(solvedAt);
+    }
+
+    /** 
+     * Check if question is solved (returns boolean only)
      * Rate limiting handled by RateLimitInterceptor (60/min for reads)
      */
     public boolean isQuestionSolved(String userId, String questionId) {
@@ -225,4 +244,3 @@ public class UserProgressService {
         return totalRemoved;
     }
 }
- 

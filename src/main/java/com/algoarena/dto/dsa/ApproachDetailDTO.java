@@ -16,7 +16,7 @@ public class ApproachDetailDTO {
     private String userName;
 
     @NotBlank(message = "Text content is required")
-    @Size(min = 10, max = 10000, message = "Text content must be between 10 and 10000 characters")
+    @Size(min = 10, max = 15000, message = "Text content must be between 10 and 15000 characters")
     private String textContent;
 
     @Size(max = 5000, message = "Code content must not exceed 5000 characters")

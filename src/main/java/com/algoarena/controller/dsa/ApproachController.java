@@ -23,7 +23,7 @@ public class ApproachController {
     @Autowired
     private ApproachService approachService;
 
-    @GetMapping("/question/{questionId}")
+    @GetMapping("/question/{questionId}") // all user approaches metadata only for this question
     public ResponseEntity<List<ApproachMetadataDTO>> getMyApproachesForQuestion(
             @PathVariable String questionId,
             Authentication authentication) {
@@ -36,7 +36,7 @@ public class ApproachController {
         return ResponseEntity.ok(approaches);
     }
 
-    @GetMapping("/question/{questionId}/{approachId}")
+    @GetMapping("/question/{questionId}/{approachId}")   // sepecific approach full content
     public ResponseEntity<ApproachDetailDTO> getMyApproachDetail(
             @PathVariable String questionId,
             @PathVariable String approachId,

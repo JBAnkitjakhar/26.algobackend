@@ -20,7 +20,7 @@ public class QuestionDTO {
     private String title;
 
     @NotBlank(message = "Statement is required")
-    @Size(min = 20, max = 10000, message = "Statement must be between 20 and 10000 characters")
+    @Size(min = 20, max = 15000, message = "Statement must be between 20 and 15000 characters")
     private String statement;
 
     private List<String> imageUrls;

@@ -37,6 +37,8 @@ public class SolutionController {
         return ResponseEntity.ok(solutions);
     }
 
+    // admin apis
+
     @PostMapping("/question/{questionId}") // create new solution
     @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERADMIN')")
     public ResponseEntity<SolutionDTO> createSolution(
