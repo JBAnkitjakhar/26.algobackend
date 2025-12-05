@@ -50,8 +50,8 @@ public class QuestionService {
     @Autowired
     private CloudinaryService cloudinaryService;
 
-    @Autowired
-    private UserProgressService userProgressService;
+    // @Autowired
+    // private UserProgressService userProgressService;
 
     @Autowired
     private CategoryService categoryService;
@@ -118,7 +118,7 @@ public class QuestionService {
                 savedQuestion.getId(),
                 savedQuestion.getLevel());
 
-        System.out.println("✓ Created question: " + savedQuestion.getTitle());
+        // System.out.println("✓ Created question: " + savedQuestion.getTitle());
 
         return QuestionDTO.fromEntity(savedQuestion);
     }
@@ -190,7 +190,7 @@ public class QuestionService {
 
         Question updatedQuestion = questionRepository.save(question);
 
-        System.out.println("✓ Updated question: " + updatedQuestion.getTitle());
+        // System.out.println("✓ Updated question: " + updatedQuestion.getTitle());
 
         return QuestionDTO.fromEntity(updatedQuestion);
     }
@@ -219,7 +219,7 @@ public class QuestionService {
 
         // ✅ STEP 1: Delete all solutions (with their images and visualizers)
         List<Solution> solutions = solutionRepository.findByQuestionId(id);
-        System.out.println("Deleting " + solutions.size() + " solutions for question...");
+        // System.out.println("Deleting " + solutions.size() + " solutions for question...");
 
         for (Solution solution : solutions) {
             // This will now properly delete solution images and visualizers
@@ -228,13 +228,13 @@ public class QuestionService {
 
         // ✅ STEP 2: Delete question's own images
         if (question.getImageUrls() != null && !question.getImageUrls().isEmpty()) {
-            System.out.println("Deleting " + question.getImageUrls().size() + " images from question...");
+            // System.out.println("Deleting " + question.getImageUrls().size() + " images from question...");
 
             for (String imageUrl : question.getImageUrls()) {
                 try {
                     String publicId = extractPublicIdFromUrl(imageUrl);
                     cloudinaryService.deleteImage(publicId);
-                    System.out.println("  ✓ Deleted image: " + publicId);
+                    // System.out.println("  ✓ Deleted image: " + publicId);
                 } catch (Exception e) {
                     System.err.println("  ✗ Failed to delete image: " + e.getMessage());
                 }
@@ -251,12 +251,12 @@ public class QuestionService {
         approachService.deleteAllApproachesForQuestion(id);
 
         // ✅ STEP 5: Remove from user progress
-        int removedFromUsers = userProgressService.removeQuestionFromAllUsers(id);
-        System.out.println("✓ Removed from " + removedFromUsers + " users' progress");
+        // int removedFromUsers = userProgressService.removeQuestionFromAllUsers(id);
+        // System.out.println("✓ Removed from " + removedFromUsers + " users' progress");
 
         // ✅ STEP 6: Delete question from database
         questionRepository.deleteById(id);
-        System.out.println("✓ Deleted question: " + question.getTitle());
+        // System.out.println("✓ Deleted question: " + question.getTitle());
     }
 
     /**
@@ -300,7 +300,7 @@ public class QuestionService {
 
     @Cacheable(value = "adminQuestionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
     public Page<AdminQuestionSummaryDTO> getAdminQuestionsSummary(Pageable pageable) {
-        System.out.println("CACHE MISS: Fetching admin questions summary from database");
+        // System.out.println("CACHE MISS: Fetching admin questions summary from database");
 
         Page<Question> questions = questionRepository.findAllByOrderByCreatedAtDesc(pageable);
 
@@ -376,7 +376,7 @@ public class QuestionService {
      */
     @Cacheable(value = "questionDetail", key = "#questionId")
     public QuestionDTO getQuestionById(String questionId) {
-        System.out.println("CACHE MISS: Fetching question detail for: " + questionId);
+        // System.out.println("CACHE MISS: Fetching question detail for: " + questionId);
 
         Question question = questionRepository.findById(questionId)
                 .orElseThrow(() -> new RuntimeException("Question not found with id: " + questionId));
@@ -386,7 +386,7 @@ public class QuestionService {
 
     @Cacheable(value = "questionsMetadata")
     public QuestionsMetadataDTO getQuestionsMetadata() {
-        System.out.println("CACHE MISS: Fetching questions metadata");
+        // System.out.println("CACHE MISS: Fetching questions metadata");
 
         List<Question> allQuestions = questionRepository.findAll();
         Map<String, QuestionsMetadataDTO.QuestionMetadata> metadataMap = new HashMap<>();

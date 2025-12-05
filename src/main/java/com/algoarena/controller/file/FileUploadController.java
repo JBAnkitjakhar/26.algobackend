@@ -359,37 +359,37 @@ public class FileUploadController {
         }
     }
 
-    /**
-     * ENHANCED: List all visualizer files for a solution
-     */
-    @GetMapping("/solutions/{solutionId}/visualizers")
-    public ResponseEntity<Map<String, Object>> getVisualizersBySolution(@PathVariable String solutionId) {
-        Map<String, Object> response = new HashMap<>();
+    // /**
+    //  * ENHANCED: List all visualizer files for a solution
+    //  */
+    // @GetMapping("/solutions/{solutionId}/visualizers")
+    // public ResponseEntity<Map<String, Object>> getVisualizersBySolution(@PathVariable String solutionId) {
+    //     Map<String, Object> response = new HashMap<>();
 
-        try {
-            if (solutionId == null || solutionId.trim().isEmpty()) {
-                response.put("success", false);
-                response.put("error", "Solution ID is required");
-                return ResponseEntity.badRequest().body(response);
-            }
+    //     try {
+    //         if (solutionId == null || solutionId.trim().isEmpty()) {
+    //             response.put("success", false);
+    //             response.put("error", "Solution ID is required");
+    //             return ResponseEntity.badRequest().body(response);
+    //         }
 
-            // ENHANCED: Use the new method that returns proper structure
-            Map<String, Object> result = visualizerService.listVisualizersBySolution(solutionId);
+    //         // ENHANCED: Use the new method that returns proper structure
+    //         Map<String, Object> result = visualizerService.listVisualizersBySolution(solutionId);
 
-            response.put("success", true);
-            response.put("data", (List<?>) result.get("files"));
-            response.put("count", result.get("count"));
-            response.put("solutionId", solutionId);
+    //         response.put("success", true);
+    //         response.put("data", (List<?>) result.get("files"));
+    //         response.put("count", result.get("count"));
+    //         response.put("solutionId", solutionId);
 
-            return ResponseEntity.ok(response);
+    //         return ResponseEntity.ok(response);
 
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("error", "Failed to get visualizers");
-            response.put("message", e.getMessage());
-            return ResponseEntity.status(500).body(response);
-        }
-    }
+    //     } catch (Exception e) {
+    //         response.put("success", false);
+    //         response.put("error", "Failed to get visualizers");
+    //         response.put("message", e.getMessage());
+    //         return ResponseEntity.status(500).body(response);
+    //     }
+    // }
 
     /**
      * UPDATED: Delete visualizer file and unlink from solution (Admin only)

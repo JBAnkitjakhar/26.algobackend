@@ -166,17 +166,17 @@ public class CourseTopicService {
 
         List<CourseDoc> docs = docRepository.findByTopicIdOrderByDisplayOrderAsc(id);
 
-        System.out.println("Deleting topic '" + topic.getName() + "' with " + docs.size() + " documents");
+        // System.out.println("Deleting topic '" + topic.getName() + "' with " + docs.size() + " documents");
 
         for (CourseDoc doc : docs) {
             if (doc.getImageUrls() != null && !doc.getImageUrls().isEmpty()) {
-                System.out.println("  Deleting " + doc.getImageUrls().size() + " images from doc: " + doc.getTitle());
+                // System.out.println("  Deleting " + doc.getImageUrls().size() + " images from doc: " + doc.getTitle());
 
                 for (String imageUrl : doc.getImageUrls()) {
                     try {
                         String publicId = extractPublicIdFromUrl(imageUrl);
                         cloudinaryService.deleteImage(publicId);
-                        System.out.println("    ✓ Deleted image: " + publicId);
+                        // System.out.println("    ✓ Deleted image: " + publicId);
                     } catch (Exception e) {
                         System.err.println("    ✗ Failed to delete image " + imageUrl + ": " + e.getMessage());
                     }
@@ -184,11 +184,11 @@ public class CourseTopicService {
             }
 
             docRepository.delete(doc);
-            System.out.println("  ✓ Deleted document: " + doc.getTitle());
+            // System.out.println("  ✓ Deleted document: " + doc.getTitle());
         }
 
         topicRepository.delete(topic);
-        System.out.println("✓ Topic deleted successfully");
+        // System.out.println("✓ Topic deleted successfully");
     }
 
     private String extractPublicIdFromUrl(String imageUrl) {

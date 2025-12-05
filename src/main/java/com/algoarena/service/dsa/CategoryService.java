@@ -32,8 +32,8 @@ public class CategoryService {
     @Autowired
     private SolutionRepository solutionRepository;
 
-    @Autowired
-    private UserProgressService userProgressService;
+    // @Autowired
+    // private UserProgressService userProgressService;
 
     @Autowired
     private ApproachService approachService;
@@ -44,7 +44,7 @@ public class CategoryService {
      */
     @Cacheable(value = "globalCategories")
     public Map<String, CategoryDTO> getAllCategories() {
-        System.out.println("CACHE MISS: Fetching all categories from database");
+        // System.out.println("CACHE MISS: Fetching all categories from database");
 
         List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscCreatedAtAscNameAsc();
 
@@ -64,7 +64,7 @@ public class CategoryService {
      */
     @Cacheable(value = "globalCategories", key = "#id")
     public CategoryDTO getCategoryById(String id) {
-        System.out.println("CACHE MISS: Fetching category by ID: " + id);
+        // System.out.println("CACHE MISS: Fetching category by ID: " + id);
 
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Category not found with id: " + id));
@@ -77,7 +77,7 @@ public class CategoryService {
      */
     @Cacheable(value = "globalCategoriesMetadata")
     public List<CategoryMetadataDTO> getCategoriesMetadata() {
-        System.out.println("Fetching category metadata (id, name, createdByName, counts, timestamps)");
+        // System.out.println("Fetching category metadata (id, name, createdByName, counts, timestamps)");
 
         List<Category> categories = categoryRepository.findAllByOrderByDisplayOrderAscCreatedAtAscNameAsc();
 
@@ -118,13 +118,13 @@ public class CategoryService {
         // Use provided displayOrder OR auto-assign
         if (categoryDTO.getDisplayOrder() != null) {
             category.setDisplayOrder(categoryDTO.getDisplayOrder());
-            System.out.println("Using admin-provided displayOrder: " + categoryDTO.getDisplayOrder());
+            // System.out.println("Using admin-provided displayOrder: " + categoryDTO.getDisplayOrder());
         } else {
             Integer maxOrder = categoryRepository.findTopByOrderByDisplayOrderDesc()
                     .map(Category::getDisplayOrder)
                     .orElse(0);
             category.setDisplayOrder(maxOrder + 1);
-            System.out.println("Auto-assigned displayOrder: " + (maxOrder + 1));
+            // System.out.println("Auto-assigned displayOrder: " + (maxOrder + 1));
         }
 
         // Initialize empty lists
@@ -135,9 +135,9 @@ public class CategoryService {
 
         Category savedCategory = categoryRepository.save(category);
 
-        System.out.println("✓ Created category: " + savedCategory.getName() +
-                " by " + savedCategory.getCreatedByName() +
-                " (displayOrder: " + savedCategory.getDisplayOrder() + ")");
+        // System.out.println("✓ Created category: " + savedCategory.getName() +
+        //         " by " + savedCategory.getCreatedByName() +
+        //         " (displayOrder: " + savedCategory.getDisplayOrder() + ")");
 
         return CategoryDTO.fromEntity(savedCategory);
     }
@@ -167,7 +167,7 @@ public class CategoryService {
 
         Category updatedCategory = categoryRepository.save(category);
 
-        System.out.println("✓ Updated category: " + updatedCategory.getName());
+        // System.out.println("✓ Updated category: " + updatedCategory.getName());
 
         return CategoryDTO.fromEntity(updatedCategory);
     }
@@ -207,8 +207,8 @@ public class CategoryService {
             }
 
             // Remove questions from user progress
-            int removedFromUsers = userProgressService.removeQuestionsFromAllUsers(questionIds);
-            System.out.println("✓ Removed " + removedFromUsers + " question entries from users' progress");
+            // int removedFromUsers = userProgressService.removeQuestionsFromAllUsers(questionIds);
+            // System.out.println("✓ Removed " + removedFromUsers + " question entries from users' progress");
 
             // Delete all questions
             questionRepository.deleteAll(questions);
@@ -217,8 +217,8 @@ public class CategoryService {
         // Delete category
         categoryRepository.deleteById(id);
 
-        System.out.println("✓ Deleted category '" + category.getName() + "' and " +
-                deletedQuestionsCount + " questions");
+        // System.out.println("✓ Deleted category '" + category.getName() + "' and " +
+        //         deletedQuestionsCount + " questions");
 
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
@@ -240,7 +240,7 @@ public class CategoryService {
         category.addQuestionId(questionId, level);
         categoryRepository.save(category);
 
-        System.out.println("✓ Added question to category '" + category.getName() + "' (" + level + ")");
+        // System.out.println("✓ Added question to category '" + category.getName() + "' (" + level + ")");
     }
 
     /**
@@ -254,7 +254,7 @@ public class CategoryService {
         category.removeQuestionId(questionId, level);
         categoryRepository.save(category);
 
-        System.out.println("✓ Removed question from category '" + category.getName() + "' (" + level + ")");
+        // System.out.println("✓ Removed question from category '" + category.getName() + "' (" + level + ")");
     }
 
     /**
@@ -269,7 +269,7 @@ public class CategoryService {
             if (oldCategory != null) {
                 oldCategory.removeQuestionId(questionId, oldLevel);
                 categoryRepository.save(oldCategory);
-                System.out.println("✓ Removed question from old category: " + oldCategory.getName());
+                // System.out.println("✓ Removed question from old category: " + oldCategory.getName());
             }
         } else if (oldCategoryId != null && oldCategoryId.equals(newCategoryId) && oldLevel != newLevel) {
             // Same category, different level
@@ -286,7 +286,7 @@ public class CategoryService {
                     .orElseThrow(() -> new RuntimeException("New category not found"));
             newCategory.addQuestionId(questionId, newLevel);
             categoryRepository.save(newCategory);
-            System.out.println("✓ Added question to new category: " + newCategory.getName() + " (" + newLevel + ")");
+            // System.out.println("✓ Added question to new category: " + newCategory.getName() + " (" + newLevel + ")");
         }
     }
 

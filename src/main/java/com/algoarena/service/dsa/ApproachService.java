@@ -5,7 +5,6 @@ import com.algoarena.dto.dsa.ApproachDetailDTO;
 import com.algoarena.dto.dsa.ApproachMetadataDTO;
 import com.algoarena.exception.ConcurrentModificationException;
 import com.algoarena.model.ProgrammingLanguage;
-import com.algoarena.model.Question;
 import com.algoarena.model.User;
 import com.algoarena.model.UserApproaches;
 import com.algoarena.model.UserApproaches.ApproachData;
@@ -73,8 +72,24 @@ public class ApproachService {
     // used
     public ApproachDetailDTO createApproach(String userId, String questionId,
             ApproachDetailDTO dto, User user) {
-        Question question = questionRepository.findById(questionId)
+
+        // ✅ Validate question exists (but don't need to store it)
+        questionRepository.findById(questionId)
                 .orElseThrow(() -> new RuntimeException("Question not found"));
+
+        // ✅ Validate lengths
+        if (dto.getCodeContent() == null || dto.getCodeContent().trim().isEmpty()) {
+            throw new RuntimeException("Code content is required");
+        }
+        if (dto.getCodeContent().length() > 50000) {
+            throw new RuntimeException("Code content exceeds 50,000 characters");
+        }
+        if (dto.getTextContent() == null || dto.getTextContent().trim().isEmpty()) {
+            throw new RuntimeException("Text content is required");
+        }
+        if (dto.getTextContent().length() > 10000) {
+            throw new RuntimeException("Text content exceeds 10,000 characters");
+        }
 
         int attempt = 0;
         while (attempt < MAX_RETRY_ATTEMPTS) {
@@ -83,7 +98,7 @@ public class ApproachService {
                         .orElse(new UserApproaches(userId, user.getName()));
 
                 // Validate and normalize language
-                String normalizedLanguage = "java"; // default
+                String normalizedLanguage = "java";
                 if (dto.getCodeLanguage() != null && !dto.getCodeLanguage().trim().isEmpty()) {
                     try {
                         ProgrammingLanguage.fromString(dto.getCodeLanguage());
@@ -94,20 +109,18 @@ public class ApproachService {
                     }
                 }
 
-                // Sanitize
+                // ✅ Sanitize text, store code as-is
                 String safeText = htmlSanitizer.sanitizeText(dto.getTextContent());
-                String safeCode = htmlSanitizer.sanitizeCode(dto.getCodeContent());
+                String safeCode = dto.getCodeContent(); // Store raw code
 
                 ApproachData newApproach = new ApproachData(questionId, safeText);
                 newApproach.setCodeContent(safeCode);
-                newApproach.setCodeLanguage(normalizedLanguage); // ✅ Normalized
+                newApproach.setCodeLanguage(normalizedLanguage);
 
                 userApproaches.addApproach(questionId, newApproach);
-
                 userApproachesRepository.save(userApproaches);
 
-                System.out.println("✓ Created approach for user: " + user.getName() +
-                        " on question: " + question.getTitle());
+                // System.out.println("✓ Created approach for user: " + user.getName());
 
                 return new ApproachDetailDTO(newApproach, userId, user.getName());
 
@@ -128,9 +141,18 @@ public class ApproachService {
         throw new ConcurrentModificationException();
     }
 
-    // used
+    //used
     public ApproachDetailDTO updateApproach(String userId, String questionId,
             String approachId, ApproachDetailDTO dto) {
+
+        // ✅ Validate lengths
+        if (dto.getCodeContent() != null && dto.getCodeContent().length() > 50000) {
+            throw new RuntimeException("Code content exceeds 50,000 characters");
+        }
+        if (dto.getTextContent() != null && dto.getTextContent().length() > 10000) {
+            throw new RuntimeException("Text content exceeds 10,000 characters");
+        }
+
         int attempt = 0;
         while (attempt < MAX_RETRY_ATTEMPTS) {
             try {
@@ -145,15 +167,13 @@ public class ApproachService {
                     throw new RuntimeException("Approach does not belong to this question");
                 }
 
-                // SANITIZE text and code
+                // ✅ Sanitize text, store code as-is
                 String safeText = dto.getTextContent() != null
                         ? htmlSanitizer.sanitizeText(dto.getTextContent())
                         : null;
-                String safeCode = dto.getCodeContent() != null
-                        ? htmlSanitizer.sanitizeCode(dto.getCodeContent())
-                        : null;
+                String safeCode = dto.getCodeContent(); // Store raw code
 
-                // VALIDATE and NORMALIZE language
+                // Validate and normalize language
                 String safeLanguage = null;
                 if (dto.getCodeLanguage() != null && !dto.getCodeLanguage().trim().isEmpty()) {
                     try {
@@ -166,10 +186,9 @@ public class ApproachService {
                 }
 
                 userApproaches.updateApproach(approachId, safeText, safeCode, safeLanguage);
-
                 userApproachesRepository.save(userApproaches);
 
-                System.out.println("✓ Updated approach: " + approachId);
+                // System.out.println("✓ Updated approach: " + approachId);
 
                 return new ApproachDetailDTO(approach, userId, userApproaches.getUserName());
 
@@ -210,10 +229,10 @@ public class ApproachService {
 
                 if (userApproaches.getTotalApproaches() == 0) {
                     userApproachesRepository.delete(userApproaches);
-                    System.out.println("✓ Deleted approach and removed empty document: " + approachId);
+                    // System.out.println("✓ Deleted approach and removed empty document: " + approachId);
                 } else {
                     userApproachesRepository.save(userApproaches);
-                    System.out.println("✓ Deleted approach: " + approachId);
+                    // System.out.println("✓ Deleted approach: " + approachId);
                 }
 
                 return;
@@ -313,7 +332,7 @@ public class ApproachService {
             userApproachesRepository.save(userApproaches);
         }
 
-        System.out.println("✓ Deleted " + approaches.size() + " approaches by user " +
-                userId + " for question: " + questionId);
+        // System.out.println("✓ Deleted " + approaches.size() + " approaches by user " +
+        //         userId + " for question: " + questionId);
     }
 }

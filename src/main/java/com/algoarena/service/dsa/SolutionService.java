@@ -40,7 +40,7 @@ public class SolutionService {
      */
     @Cacheable(value = "solutionDetail", key = "#id")
     public SolutionDTO getSolutionById(String id) {
-        System.out.println("CACHE MISS: Fetching solution - ID: " + id);
+        // System.out.println("CACHE MISS: Fetching solution - ID: " + id);
         Solution solution = solutionRepository.findById(id).orElse(null);
         return solution != null ? SolutionDTO.fromEntity(solution) : null;
     }
@@ -50,7 +50,7 @@ public class SolutionService {
      */
     @Cacheable(value = "questionSolutions", key = "#questionId")
     public List<SolutionDTO> getSolutionsByQuestion(String questionId) {
-        System.out.println("CACHE MISS: Fetching solutions for question - ID: " + questionId);
+        // System.out.println("CACHE MISS: Fetching solutions for question - ID: " + questionId);
         List<Solution> solutions = solutionRepository.findByQuestionIdOrderByCreatedAtAsc(questionId);
         return solutions.stream()
                 .map(SolutionDTO::fromEntity)
@@ -92,8 +92,8 @@ public class SolutionService {
 
         Solution savedSolution = solutionRepository.save(solution);
 
-        System.out.println("✓ Created solution for question: " + questionId);
-        System.out.println("✓ Cleared all solution caches");
+        // System.out.println("✓ Created solution for question: " + questionId);
+        // System.out.println("✓ Cleared all solution caches");
 
         return SolutionDTO.fromEntity(savedSolution);
     }
@@ -128,7 +128,7 @@ public class SolutionService {
 
         Solution updatedSolution = solutionRepository.save(solution);
 
-        System.out.println("✓ Updated solution: " + id);
+        // System.out.println("✓ Updated solution: " + id);
 
         return SolutionDTO.fromEntity(updatedSolution);
     }
@@ -148,13 +148,13 @@ public class SolutionService {
 
         // ✅ STEP 1: Delete Cloudinary images
         if (solution.getImageUrls() != null && !solution.getImageUrls().isEmpty()) {
-            System.out.println("Deleting " + solution.getImageUrls().size() + " images from solution...");
+            // System.out.println("Deleting " + solution.getImageUrls().size() + " images from solution...");
 
             for (String imageUrl : solution.getImageUrls()) {
                 try {
                     String publicId = extractPublicIdFromUrl(imageUrl);
                     cloudinaryService.deleteImage(publicId);
-                    System.out.println("  ✓ Deleted image: " + publicId);
+                    // System.out.println("  ✓ Deleted image: " + publicId);
                 } catch (Exception e) {
                     System.err.println("  ✗ Failed to delete image: " + e.getMessage());
                 }
@@ -164,14 +164,14 @@ public class SolutionService {
         // ✅ STEP 2: Delete visualizer files
         try {
             visualizerService.deleteAllVisualizersForSolution(id);
-            System.out.println("✓ Deleted visualizers for solution: " + id);
+            // System.out.println("✓ Deleted visualizers for solution: " + id);
         } catch (Exception e) {
             System.err.println("Failed to clean up visualizer files: " + e.getMessage());
         }
 
         // ✅ STEP 3: Delete solution from database
         solutionRepository.deleteById(id);
-        System.out.println("✓ Deleted solution: " + id);
+        // System.out.println("✓ Deleted solution: " + id);
     }
 
     /**
@@ -328,7 +328,7 @@ public class SolutionService {
      */
     @Cacheable(value = "adminSolutionsSummary", key = "'page_' + #pageable.pageNumber + '_size_' + #pageable.pageSize")
     public Page<AdminSolutionSummaryDTO> getAdminSolutionsSummary(Pageable pageable) {
-        System.out.println("CACHE MISS: Fetching admin summary - Page: " + pageable.getPageNumber());
+        // System.out.println("CACHE MISS: Fetching admin summary - Page: " + pageable.getPageNumber());
 
         Page<Solution> solutions = solutionRepository.findAllByOrderByCreatedAtDesc(pageable);
 
